@@ -1,52 +1,84 @@
-# cartella: test/status_test.py
-
-import unittest
-from unittest.mock import Mock
 import uuid
-import asyncio
+import pytest
+import pytest_asyncio
+from unittest.mock import MagicMock
 
-# Importa le classi necessarie
-from model.order import Order
-from model.status import StatusEnum 
-from repository.order_status_repository import OrderStatusRepository
 from service.status_service import OrderStatusService
+from model.order import Order
+from model.status import StatusEnum, OrderStatus
 
-class TestOrderStatusService(unittest.TestCase):
-    def setUp(self):
-        self.mock_repo = Mock(spec=OrderStatusRepository)
-        self.status_service = OrderStatusService(status_repo=self.mock_repo)
 
-    def test_create_initial_status(self):
-        # --- Questo test è già corretto e rimane invariato ---
-        order = Order(
-            order_id=uuid.uuid4(),
-            customer_id=uuid.uuid4(),
-            dish_id=uuid.uuid4(),
-            delivery_address="Via Test 123",
-            kitchen_id=uuid.uuid4() 
-        )
-        
-        asyncio.run(self.status_service.create_initial_status(order))
+@pytest_asyncio.fixture
+def repo_mock():
+    """Mock del repository degli stati (sincrono)."""
+    return MagicMock()
 
-        self.mock_repo.save.assert_called_once()
-        saved_status = self.mock_repo.save.call_args[0][0]
-        self.assertEqual(saved_status.status, StatusEnum.RECEIVED)
 
-    def test_update_status_calls_repository_correctly(self):
-        """
-        TEST: Verifica che l'aggiornamento di stato chiami il metodo
-        corretto del repository.
-        """
-        # --- ARRANGE ---
-        order_id = uuid.uuid4()
-        # CORREZIONE: Usa il nome corretto del membro dell'enum
-        new_status = StatusEnum.READY_FOR_PICKUP
-        
-        self.mock_repo.update_status.return_value = True
+@pytest_asyncio.fixture
+def service(repo_mock):
+    """Istanza del service con il repo mockato."""
+    return OrderStatusService(status_repo=repo_mock)
 
-        # --- ACT ---
-        result = asyncio.run(self.status_service.update_status(order_id, new_status))
 
-        # --- ASSERT ---
-        self.assertTrue(result)
-        self.mock_repo.update_status.assert_called_once_with(order_id, new_status)
+# ============================================================
+# TEST: create_initial_status
+# ============================================================
+@pytest.mark.asyncio
+async def test_create_initial_status_success(service, repo_mock):
+    order = Order(
+        kitchen_id=uuid.uuid4(),
+        customer_id=uuid.uuid4(),
+        dish_id=uuid.uuid4(),
+        delivery_address="Via Roma",
+    )
+
+    repo_mock.save.return_value = None  # mock del metodo sincrono
+
+    status = await service.create_initial_status(order)
+
+    assert isinstance(status, OrderStatus)
+    assert status.order_id == order.order_id
+    assert status.kitchen_id == order.kitchen_id
+    assert status.status == StatusEnum.RECEIVED
+    repo_mock.save.assert_called_once_with(status)
+
+
+@pytest.mark.asyncio
+async def test_create_initial_status_no_kitchen(service, repo_mock):
+    # Qui kitchen_id è opzionale solo se lo hai definito così nel modello Order
+    # Se è obbligatorio, serve una classe fittizia
+    class FakeOrder:
+        def __init__(self):
+            self.order_id = uuid.uuid4()
+            self.kitchen_id = None
+
+    order = FakeOrder()
+    result = await service.create_initial_status(order)
+
+    assert result is None
+    repo_mock.save.assert_not_called()
+
+
+# ============================================================
+# TEST: update_status
+# ============================================================
+@pytest.mark.asyncio
+async def test_update_status_success(service, repo_mock):
+    order_id = uuid.uuid4()
+    repo_mock.update_status.return_value = True
+
+    result = await service.update_status(order_id, StatusEnum.PREPARING)
+
+    assert result is True
+    repo_mock.update_status.assert_called_once_with(order_id, StatusEnum.PREPARING)
+
+
+@pytest.mark.asyncio
+async def test_update_status_fail(service, repo_mock):
+    order_id = uuid.uuid4()
+    repo_mock.update_status.return_value = False
+
+    result = await service.update_status(order_id, StatusEnum.CANCELLED)
+
+    assert result is False
+    repo_mock.update_status.assert_called_once_with(order_id, StatusEnum.CANCELLED)

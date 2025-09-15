@@ -1,71 +1,234 @@
 import uuid
 import pytest
-from unittest.mock import MagicMock, AsyncMock
+from unittest import mock
 
-# Il percorso di importazione potrebbe variare in base alla struttura del tuo progetto
-from model.kitchen import KitchenAvailability
-from repository.kitchen_repository import KitchenAvailabilityRepository
+# Assicurati che questi import puntino ai tuoi file reali
+# Ad esempio: from service.kitchen_service import KitchenService
+# from model.kitchen import KitchenAvailability
 from service.kitchen_service import KitchenService
+from model.kitchen import KitchenAvailability 
 
-# --- Test per il KitchenService ---
+# --- Fixture per l'impostazione dei test (CORRETTA) ---
+
+@pytest.fixture
+def mock_kitchen_repo():
+    """Crea un mock per KitchenAvailabilityRepository."""
+    repo = mock.MagicMock()
+    # I metodi del repo sono sincroni perché vengono chiamati con asyncio.to_thread.
+    # Quindi usiamo MagicMock, non AsyncMock.
+    repo.get_by_id = mock.MagicMock()
+    repo.update_fields = mock.MagicMock()
+    return repo
+
+@pytest.fixture
+def kitchen_service(mock_kitchen_repo):
+    """Crea un'istanza di KitchenService con il repository mockato."""
+    return KitchenService(mock_kitchen_repo)
+
+# --- Test per increment_load (ora funzioneranno) ---
 
 @pytest.mark.asyncio
-async def test_increment_load_makes_kitchen_not_operational_at_max_capacity():
+async def test_increment_load_success(kitchen_service, mock_kitchen_repo):
     """
-    TEST: Verifica che increment_load imposti is_operational a False 
-    quando current_load raggiunge max_load.
+    Verifica che il carico venga incrementato correttamente quando la cucina è operativa
+    e non al massimo della capacità.
     """
-    # 1. SETUP: Prepariamo il nostro "scenario"
-    
     kitchen_id = uuid.uuid4()
-    
-    # Creiamo un oggetto finto che rappresenta lo stato della cucina PRIMA dell'operazione.
-    # Nota: il carico è a un passo dal massimo.
-    initial_kitchen_state = KitchenAvailability(
-        kitchen_id=kitchen_id,
-        current_load=9,  # Un ordine in meno della capacità massima
-        max_load=10,
-        is_operational=True
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=5, is_operational=True
     )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+    mock_kitchen_repo.update_fields.return_value = True
 
-    # 2. MOCKING: Creiamo il finto repository (il nostro "assistente")
-    
-    # Creiamo un mock del repository. MagicMock è molto potente.
-    mock_repo = MagicMock(spec=KitchenAvailabilityRepository)
-    
-    # Diciamo al mock come comportarsi: "Quando qualcuno chiama il tuo metodo
-    # 'get_by_id' con questo specifico ID, restituisci l'oggetto 'initial_kitchen_state'".
-    # Usiamo AsyncMock perché il metodo del repository è asincrono.
-    mock_repo.get_by_id = AsyncMock(return_value=initial_kitchen_state)
-    
-    # Diciamo anche che il metodo 'save' è asincrono (non ci interessa cosa fa, solo che venga chiamato).
-    mock_repo.save = AsyncMock()
-
-    # 3. ESECUZIONE: Avviamo la logica che vogliamo testare
-    
-    # Creiamo un'istanza del nostro servizio, ma gli passiamo il repository Finto.
-    kitchen_service = KitchenService(kitchen_repo=mock_repo)
-    
-    # Chiamiamo il metodo che vogliamo testare.
     result = await kitchen_service.increment_load(kitchen_id)
 
-    # 4. VERIFICA (ASSERT): Controlliamo che sia successo quello che ci aspettavamo
-    
-    # Il risultato dell'operazione dovrebbe essere True (successo).
     assert result is True
-    
-    # Controlliamo che il metodo 'get_by_id' del nostro mock sia stato chiamato una volta.
-    mock_repo.get_by_id.assert_called_once_with(kitchen_id)
-    
-    # Controlliamo che il metodo 'save' sia stato chiamato.
-    mock_repo.save.assert_called_once()
-    
-    # Questa è la verifica più importante della nostra logica di business:
-    # L'oggetto che è stato passato al metodo 'save' deve avere:
-    # - current_load incrementato a 10
-    # - is_operational impostato a False
-    saved_kitchen_object = mock_repo.save.call_args[0][0] # Estraiamo l'oggetto passato a save()
-    
-    assert saved_kitchen_object.current_load == 10
-    assert saved_kitchen_object.is_operational is False
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_called_once_with(
+        kitchen_id=kitchen_id, current_load=6, is_operational=True
+    )
 
+@pytest.mark.asyncio
+async def test_increment_load_reaches_max_load(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che is_operational diventi False quando il carico raggiunge il massimo.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=9, is_operational=True
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.increment_load(kitchen_id)
+
+    assert result is True
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_called_once_with(
+        kitchen_id=kitchen_id, current_load=10, is_operational=False
+    )
+
+@pytest.mark.asyncio
+async def test_increment_load_exceeds_max_load(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che is_operational diventi False quando il carico supera il massimo.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=10, is_operational=True
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.increment_load(kitchen_id)
+
+    assert result is True
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_called_once_with(
+        kitchen_id=kitchen_id, current_load=11, is_operational=False
+    )
+
+@pytest.mark.asyncio
+async def test_increment_load_kitchen_not_found(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che la funzione ritorni False se la cucina non esiste.
+    """
+    kitchen_id = uuid.uuid4()
+    mock_kitchen_repo.get_by_id.return_value = None
+
+    result = await kitchen_service.increment_load(kitchen_id)
+
+    assert result is False
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_increment_load_kitchen_not_operational(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che la funzione ritorni False se la cucina non è già operativa.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=5, is_operational=False
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+
+    result = await kitchen_service.increment_load(kitchen_id)
+
+    assert result is False
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_not_called()
+
+# --- Test per decrement_load ---
+
+@pytest.mark.asyncio
+async def test_decrement_load_success(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che il carico venga decrementato correttamente.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=5, is_operational=True
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.decrement_load(kitchen_id)
+
+    assert result is True
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_called_once_with(
+        kitchen_id=kitchen_id, current_load=4, is_operational=True
+    )
+
+@pytest.mark.asyncio
+async def test_decrement_load_becomes_operational(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che la cucina torni operativa quando il carico scende sotto il massimo.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=10, is_operational=False
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.decrement_load(kitchen_id)
+
+    assert result is True
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_called_once_with(
+        kitchen_id=kitchen_id, current_load=9, is_operational=True
+    )
+
+@pytest.mark.asyncio
+async def test_decrement_load_at_zero(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che il decremento fallisca se il carico è già a zero.
+    """
+    kitchen_id = uuid.uuid4()
+    initial_kitchen = KitchenAvailability(
+        id=kitchen_id, max_load=10, current_load=0, is_operational=True
+    )
+    mock_kitchen_repo.get_by_id.return_value = initial_kitchen
+
+    result = await kitchen_service.decrement_load(kitchen_id)
+
+    assert result is False
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_decrement_load_kitchen_not_found(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che il decremento fallisca se la cucina non viene trovata.
+    """
+    kitchen_id = uuid.uuid4()
+    mock_kitchen_repo.get_by_id.return_value = None
+
+    result = await kitchen_service.decrement_load(kitchen_id)
+
+    assert result is False
+    mock_kitchen_repo.get_by_id.assert_called_once_with(kitchen_id)
+    mock_kitchen_repo.update_fields.assert_not_called()
+
+# --- Test per set_operational_status ---
+
+@pytest.mark.asyncio
+async def test_set_operational_status_to_true(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che lo stato operativo venga impostato correttamente a True.
+    """
+    kitchen_id = uuid.uuid4()
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.set_operational_status(kitchen_id, True)
+
+    assert result is True
+    mock_kitchen_repo.update_fields.assert_called_once_with(kitchen_id, is_operational=True)
+
+@pytest.mark.asyncio
+async def test_set_operational_status_to_false(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica che lo stato operativo venga impostato correttamente a False.
+    """
+    kitchen_id = uuid.uuid4()
+    mock_kitchen_repo.update_fields.return_value = True
+
+    result = await kitchen_service.set_operational_status(kitchen_id, False)
+
+    assert result is True
+    mock_kitchen_repo.update_fields.assert_called_once_with(kitchen_id, is_operational=False)
+
+@pytest.mark.asyncio
+async def test_set_operational_status_failure(kitchen_service, mock_kitchen_repo):
+    """
+    Verifica la gestione del fallimento, ad esempio se l'ID non esiste e il repo ritorna False.
+    """
+    kitchen_id = uuid.uuid4()
+    mock_kitchen_repo.update_fields.return_value = False
+
+    result = await kitchen_service.set_operational_status(kitchen_id, True)
+
+    assert result is False
+    mock_kitchen_repo.update_fields.assert_called_once_with(kitchen_id, is_operational=True)

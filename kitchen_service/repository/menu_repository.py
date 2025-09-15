@@ -2,7 +2,7 @@
 
 import redis
 from redis.cluster import RedisCluster, ClusterNode
-from typing import Optional, List, Dict
+from typing import Optional, List
 from uuid import UUID
 from model.menu import MenuItem, Menu # Assumendo che i tuoi modelli siano in model/menu.py
 
@@ -23,7 +23,20 @@ local new_dish_json = string.gsub(dish_json, '"available_quantity":%s*'..quantit
 redis.call('HSET', KEYS[1], ARGV[1], new_dish_json)
 return new_quantity
 """
-# (Puoi aggiungere script simili per INCREMENT e SET)
+
+INCREMENT_QUANTITY_SCRIPT = """
+local dish_json = redis.call('HGET', KEYS[1], ARGV[1])
+if not dish_json then return -1 end
+local quantity_str = string.match(dish_json, '"available_quantity":%s*(%d+)')
+if not quantity_str then return -2 end
+local quantity = tonumber(quantity_str)
+local amount = tonumber(ARGV[2])
+local new_quantity = quantity + amount
+local new_dish_json = string.gsub(dish_json, '"available_quantity":%s*'..quantity_str, '"available_quantity":'..tostring(new_quantity))
+redis.call('HSET', KEYS[1], ARGV[1], new_dish_json)
+return new_quantity
+"""
+
 
 class MenuRepository:
     def __init__(self, redis_cluster_nodes: List[ClusterNode]):
@@ -40,6 +53,7 @@ class MenuRepository:
             
         # Registra lo script Lua per renderlo efficiente
         self.decrement_script = self.redis.register_script(DECREMENT_QUANTITY_SCRIPT)
+        self.increment_script = self.redis.register_script(INCREMENT_QUANTITY_SCRIPT)
 
     def _menu_key(self, kitchen_id: UUID) -> str:
         """Helper per generare la chiave Redis per il menu di una cucina."""
@@ -99,4 +113,13 @@ class MenuRepository:
         """
         key = self._menu_key(kitchen_id)
         result = self.decrement_script(keys=[key], args=[str(dish_id)])
+        return int(result)
+    
+    def atomic_increment_quantity(self, kitchen_id: UUID, dish_id: UUID, amount: int = 1) -> int:
+        """
+        Incrementa la quantità di un piatto in modo sicuro e atomico.
+        Restituisce la nuova quantità o un codice di errore.
+        """
+        key = self._menu_key(kitchen_id)
+        result = self.increment_script(keys=[key], args=[str(dish_id), str(amount)])
         return int(result)

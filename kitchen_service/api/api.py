@@ -1,161 +1,223 @@
-# cartella: api/main.py
-import os
 import uuid
-from fastapi import FastAPI, Depends, HTTPException, status
-from pydantic import BaseModel
-from typing import List
-from redis.cluster import ClusterNode
-# Importa i tuoi modelli, servizi e repository
-from model.menu import MenuItem
-from model.status import OrderStatus, StatusEnum
+from typing import List, Optional, Annotated
+
+from fastapi import APIRouter, Depends, Request, Header, HTTPException, status
+from pydantic import BaseModel, Field, conint, confloat
+
+# Importa modelli di dominio
 from model.kitchen import KitchenAvailability
+from model.menu import MenuItem
+from model.messaging_models import OrderRequest
+from model.order import Order
+from model.status import OrderStatus, StatusEnum
+
+# Tiping dei servizi (usati solo come hint nelle dipendenze)
 from service.kitchen_service import KitchenService
 from service.menu_service import MenuService
 from service.order_service import OrderOrchestrationService
-from repository.kitchen_repository import KitchenAvailabilityRepository
-from repository.menu_repository import MenuRepository
-from repository.order_status_repository import OrderStatusRepository
-from repository.order_repository import OrderRepository
-from producers.producers import EventProducer
 from service.status_service import OrderStatusService
 
-# ======================================================================
-# --- Blocco di Inizializzazione e Dependency Injection ---
-# ======================================================================
-
-# In un'app reale, questi valori verrebbero da file di configurazione o variabili d'ambiente
-KAFKA_BROKERS = "localhost:9092"
-ETCD_HOST = "localhost"
-ETCD_PORT = 2379
-
-#Leggiamo il KITCHEN_ID da una variabile d'ambiente.
-# Se non la trova, ne crea uno nuovo (utile per i test locali).
-try:
-    KITCHEN_ID = uuid.UUID(os.environ.get("KITCHEN_ID"))
-    print(f"✅ ID Cucina caricato dall'ambiente: {KITCHEN_ID}")
-except (ValueError, TypeError):
-    KITCHEN_ID = uuid.uuid4()
-    print(f"⚠️ ATTENZIONE: KITCHEN_ID non trovato. Generato un ID casuale: {KITCHEN_ID}")
+router = APIRouter()
 
 
-# 1. Istanziamo i Repository (le connessioni ai database)
-kitchen_repo = KitchenAvailabilityRepository() # In-memory per il PoC
-# Quando esegui il codice dentro Docker (tra container)
-redis_cluster_nodes = [
-    ClusterNode("redis-node-1", 6379),
-    ClusterNode("redis-node-2", 6379),
-    ClusterNode("redis-node-3", 6379)
-]
+# -------------------------
+# Dependency injection
+# -------------------------
+def get_kitchen_service(request: Request) -> KitchenService:
+    return request.app.state.kitchen_service
 
-# Quando esegui il codice fuori Docker (dal tuo PC)
-# redis_cluster_nodes = [
-#     ClusterNode("localhost", 7000),
-#     ClusterNode("localhost", 7001),
-#     ClusterNode("localhost", 7002)
-# ]
-menu_repo = MenuRepository(redis_cluster_nodes=redis_cluster_nodes)
-order_status_repo = OrderStatusRepository(host=ETCD_HOST, port=ETCD_PORT)
-order_repo = OrderRepository() # In-memory per il PoC
+def get_menu_service(request: Request) -> MenuService:
+    return request.app.state.menu_service
 
-# 2. Istanziamo il Producer Kafka
-event_producer = EventProducer(bootstrap_servers=KAFKA_BROKERS)
+def get_orchestrator(request: Request) -> OrderOrchestrationService:
+    return request.app.state.orchestration_service
 
-# 3. Istanziamo i Servizi, iniettando le loro dipendenze
-kitchen_service = KitchenService(kitchen_repo=kitchen_repo)
-menu_service = MenuService(menu_repo=menu_repo)
-status_service = OrderStatusService(status_repo=order_status_repo)
-orchestration_service = OrderOrchestrationService(
-    order_repo=order_repo,
-    kitchen_service=kitchen_service,
-    menu_service=menu_service,
-    status_service=status_service,
-    event_producer=event_producer
-)
+def get_status_service(request: Request) -> OrderStatusService:
+    return request.app.state.status_service
 
-# Funzione "provider" per FastAPI per iniettare l'orchestratore
-def get_orchestrator():
-    return orchestration_service
+def get_kitchen_id(request: Request) -> uuid.UUID:
+    return request.app.state.kitchen_id
 
-# ======================================================================
-# --- Applicazione FastAPI e Definizione degli Endpoint ---
-# ======================================================================
+async def verify_api_key(request: Request, x_api_key: str = Header(..., alias="X-API-Key")):
+    """Verifica che la API key fornita nell'header sia valida."""
+    # use constant-time comparison if you later move to hmac.compare_digest
+    if x_api_key != request.app.state.internal_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: Invalid API Key"
+        )
 
-app = FastAPI(
-    title="Kitchen Service API",
-    description="API per gestire le operazioni di una Ghost Kitchen."
-)
-
-# Modelli Pydantic per i corpi delle richieste API
+# -------------------------
+# Pydantic models per request body
+# -------------------------
 class QuantityUpdateRequest(BaseModel):
     available_quantity: int
 
 class StatusUpdateRequest(BaseModel):
     status: StatusEnum
 
-# --- Endpoint per la Risorsa: Kitchen ---
+class MenuItemUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    price: Optional[float] = None
+    available_quantity: Optional[int] = None
 
-@app.get("/kitchen", response_model=KitchenAvailability)
-async def get_kitchen_status():
-    """Recupera lo stato operativo attuale della cucina."""
-    kitchen_state = await kitchen_repo.get_by_id(KITCHEN_ID)
+# -------------------------
+# Endpoints (usano @router.*)
+# -------------------------
+
+# --- Kitchen Endpoints ---
+@router.get("/kitchen", response_model=KitchenAvailability)
+async def get_kitchen_status(
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    kitchen_service: KitchenService = Depends(get_kitchen_service)
+):
+    kitchen_state = await kitchen_service.get_by_id(kitchen_id)
     if not kitchen_state:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stato cucina non trovato.")
     return kitchen_state
 
-@app.patch("/kitchen")
-async def update_kitchen_status(is_operational: bool):
-    """Aggiorna lo stato operativo della cucina (aperta/chiusa)."""
-    success = await kitchen_service.set_operational_status(KITCHEN_ID, is_operational)
+@router.patch("/kitchen", dependencies=[Depends(verify_api_key)])
+async def update_kitchen_status(
+    is_operational: bool,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    kitchen_service: KitchenService = Depends(get_kitchen_service)
+):
+    success = await kitchen_service.set_operational_status(kitchen_id, is_operational)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Impossibile aggiornare lo stato della cucina.")
     return {"message": "Stato cucina aggiornato con successo."}
 
-# --- Endpoint per la Risorsa: Menu / Inventory ---
+# --- Menu Endpoints ---
+@router.get("/menu/dishes", response_model=List[MenuItem])
+async def get_all_dishes(
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    menu = await menu_service.get_menu(kitchen_id)
+    return menu.items if menu and menu.items else []
 
-@app.get("/menu/dishes", response_model=List[MenuItem])
-async def get_all_dishes():
-    """Recupera la lista di tutti i piatti del menu con la loro quantità."""
-    # Nota: questo richiede un metodo get_all_items nel MenuRepository
-    menu = await menu_repo.get_menu(KITCHEN_ID)
-    if not menu:
-        return []
-    return list(menu.items.values())
+@router.get("/menu/dishes/{dish_id}", response_model=MenuItem)
+async def get_dish_detail(
+    dish_id: uuid.UUID,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    item = await menu_service.get_menu_item(kitchen_id, dish_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato.")
+    return item
 
-@app.patch("/menu/dishes/{dish_id}/quantity", response_model=MenuItem)
-async def update_dish_quantity(dish_id: uuid.UUID, request: QuantityUpdateRequest):
-    """Imposta la quantità disponibile per un piatto specifico."""
-    # Nota: questo richiede un metodo specifico nel MenuService/MenuRepository
-    item = await menu_repo.get_menu_item(KITCHEN_ID, dish_id)
+@router.post("/menu/dishes", status_code=status.HTTP_201_CREATED, response_model=MenuItem, dependencies=[Depends(verify_api_key)])
+async def create_menu_item(
+    dish: MenuItem,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    success = await menu_service.create_menu_item(kitchen_id, dish)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Creazione piatto fallita.")
+    return dish
+
+@router.patch("/menu/dishes/{dish_id}/quantity", response_model=MenuItem, dependencies=[Depends(verify_api_key)])
+async def update_dish_quantity(
+    dish_id: uuid.UUID,
+    request: QuantityUpdateRequest,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    item = await menu_service.get_menu_item(kitchen_id, dish_id)
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato.")
+    item.available_quantity = request.available_quantity
+    await menu_service.update_menu_item(kitchen_id, item)
+    return item
+
+@router.patch("/menu/dishes/{dish_id}", response_model=MenuItem, dependencies=[Depends(verify_api_key)])
+async def update_menu_item_details(
+    dish_id: uuid.UUID,
+    request: MenuItemUpdateRequest,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    item = await menu_service.get_menu_item(kitchen_id, dish_id)
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato.")
     
-    item.available_quantity = request.available_quantity
-    await menu_repo.create_menu_item(KITCHEN_ID, item)
-    return item
+    update_data = request.model_dump(exclude_unset=True)
+    # Nota: qui potresti aggiungere autorizzazione field-level, es. bloccare "price" ai ruoli non consentiti.
+    updated_item = item.model_copy(update=update_data)
 
-# --- Endpoint per la Risorsa: Orders ---
+    await menu_service.update_menu_item(kitchen_id, updated_item)
+    return updated_item
 
-@app.get("/orders", response_model=List[OrderStatus])
-async def get_active_orders():
-    """Recupera la lista di tutti gli ordini attivi per questa cucina."""
-    # Nota: questo richiede un metodo get_all nel OrderStatusRepository
-    return await order_status_repo.get_all_by_kitchen(KITCHEN_ID)
+@router.delete("/menu/dishes/{dish_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(verify_api_key)])
+async def delete_menu_item(
+    dish_id: uuid.UUID,
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    success = await menu_service.delete_menu_item(kitchen_id, dish_id)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato o impossibile da eliminare.")
+    return
 
-@app.patch("/orders/{order_id}/status", status_code=status.HTTP_202_ACCEPTED)
+# --- Orders Endpoints ---
+@router.get("/orders", response_model=List[OrderStatus])
+async def get_active_orders(
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
+    status_service: OrderStatusService = Depends(get_status_service)
+):
+    return await status_service.get_all_active_orders_by_kitchen(kitchen_id)
+
+@router.get("/orders/{order_id}", response_model=Order)
+async def get_order_detail(
+    order_id: uuid.UUID, 
+    orchestrator: OrderOrchestrationService = Depends(get_orchestrator)
+):
+    order = await orchestrator.get_order_by_id(order_id)
+    if not order:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordine non trovato.")
+    return order
+
+@router.post("/user/orders", status_code=status.HTTP_201_CREATED, response_model=Order)
+async def create_user_order(
+    order_request: OrderRequest, 
+    orchestrator: OrderOrchestrationService = Depends(get_orchestrator)
+):
+    """Endpoint pubblico per un cliente finale per effettuare un ordine."""
+    saved_order = await orchestrator.create_order_from_user(order_request)
+    if not saved_order:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="La creazione dell'ordine è fallita.")
+    return saved_order
+
+@router.post("/orders", status_code=status.HTTP_201_CREATED, response_model=Order, dependencies=[Depends(verify_api_key)])
+async def create_order_internal(
+    order: Order, 
+    orchestrator: OrderOrchestrationService = Depends(get_orchestrator)
+):
+    """Endpoint interno per registrare un ordine già assegnato a questa cucina."""
+    success = await orchestrator.handle_newly_assigned_order(order)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Creazione ordine fallita.")
+    return order
+
+@router.post("/orders/proposals", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(verify_api_key)])
+async def propose_order(
+    request: OrderRequest, 
+    orchestrator: OrderOrchestrationService = Depends(get_orchestrator)
+):
+    """Endpoint interno per candidare la cucina a un ordine."""
+    await orchestrator.check_availability_and_propose(request)
+    return {"message": "Richiesta di candidatura inviata con successo."}
+
+@router.patch("/orders/{order_id}/status", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(verify_api_key)])
 async def update_order_status(
     order_id: uuid.UUID,
     request: StatusUpdateRequest,
     orchestrator: OrderOrchestrationService = Depends(get_orchestrator)
 ):
-    """
-    Endpoint principale per lo staff: aggiorna lo stato di un ordine
-    (es. da 'in preparazione' a 'pronto').
-    """
-    success = await orchestrator.handle_order_status_update(
-        order_id=order_id,
-        kitchen_id=KITCHEN_ID,
-        new_status=request.status
-    )
+    """Endpoint interno per aggiornare lo stato di un ordine."""
+    success = await orchestrator.handle_order_status_update(order_id, request.status)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordine non trovato o aggiornamento fallito.")
     return {"message": "Richiesta di aggiornamento stato accettata."}

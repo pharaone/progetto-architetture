@@ -1,6 +1,4 @@
 services:
-  # --- Servizi di Infrastruttura (Zookeeper, Kafka, etcd rimangono invariati) ---
-
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
     environment:
@@ -15,13 +13,14 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.3.0
     depends_on:
-      zookeeper:
-        condition: service_healthy
+      - zookeeper
     ports:
-      - "9092:9092"
+      - "29092:29092" #"9092:9092" esposto sull'host per test locali (localhost:9092)
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # listeners: interno per i container (29092) + esterno per l'host (9092)
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -34,53 +33,60 @@ services:
 
   etcd:
     image: bitnami/etcd:3.5
-    ports:
-      - "2379:2379"
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
+    volumes:
+      - etcd-data:/bitnami/etcd
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # --- CORREZIONE: Definizione dei 3 Nodi per il Redis Cluster ---
-
   redis-node-1:
     image: redis:7-alpine
-    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
-    ports:
-      - "7000:6379" # Porta esterna 7000
+    command: >
+      sh -c "redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes"
+    volumes:
+      - redis-data-1:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   redis-node-2:
     image: redis:7-alpine
-    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
-    ports:
-      - "7001:6379" # Porta esterna 7001
+    command: >
+      sh -c "redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes"
+    volumes:
+      - redis-data-2:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   redis-node-3:
     image: redis:7-alpine
-    command: redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000
-    ports:
-      - "7002:6379" # Porta esterna 7002
+    command: >
+      sh -c "redis-server --port 6379 --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes"
+    volumes:
+      - redis-data-3:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-h", "localhost", "-p", "6379", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  # --- Istanze del Tuo Microservizio Cucina ---
-  # Nota: Ora dipendono dai 3 nodi redis, non da un singolo servizio 'redis'
   kitchen-service-1:
     build: .
     restart: always
     depends_on:
-      kafka:
-        condition: service_healthy
-      etcd:
-        condition: service_healthy
-      # Dipende da tutti i nodi Redis
-      redis-node-1:
-        condition: service_started
-      redis-node-2:
-        condition: service_started
-      redis-node-3:
-        condition: service_started
+      - kafka
+      - etcd
+    env_file:
+      - .env
     environment:
       - KITCHEN_ID=11111111-1111-1111-1111-111111111111
     ports:
@@ -90,16 +96,10 @@ services:
     build: .
     restart: always
     depends_on:
-      kafka:
-        condition: service_healthy
-      etcd:
-        condition: service_healthy
-      redis-node-1:
-        condition: service_started
-      redis-node-2:
-        condition: service_started
-      redis-node-3:
-        condition: service_started
+      - kafka
+      - etcd
+    env_file:
+      - .env
     environment:
       - KITCHEN_ID=22222222-2222-2222-2222-222222222222
     ports:
@@ -109,17 +109,17 @@ services:
     build: .
     restart: always
     depends_on:
-      kafka:
-        condition: service_healthy
-      etcd:
-        condition: service_healthy
-      redis-node-1:
-        condition: service_started
-      redis-node-2:
-        condition: service_started
-      redis-node-3:
-        condition: service_started
+      - kafka
+      - etcd
+    env_file:
+      - .env
     environment:
       - KITCHEN_ID=33333333-3333-3333-3333-333333333333
     ports:
       - "8003:8000"
+
+volumes:
+  etcd-data:
+  redis-data-1:
+  redis-data-2:
+  redis-data-3:

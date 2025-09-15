@@ -67,7 +67,7 @@ class EventConsumer:
                 
                 elif msg.topic == ORDER_STATUS_REQUEST_TOPIC:
                     request = StatusRequest(**msg.value)
-                    await self._orchestrator.get_and_publish_status(request.order_id)
+                    await self._orchestrator.get_and_publish_status(request.order_id, request.kitchen_id)
 
             # MIGLIORAMENTO: Ora cattura anche gli errori di validazione Pydantic
             except ValidationError as e:

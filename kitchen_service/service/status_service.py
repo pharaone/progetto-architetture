@@ -1,7 +1,7 @@
 # cartella: services/order_status_service.py
 
 import uuid
-import asyncio # <-- Importa la libreria asyncio
+import asyncio
 from typing import Optional
 
 # Importa i tuoi modelli e il repository
@@ -17,6 +17,18 @@ class OrderStatusService:
     def __init__(self, status_repo: OrderStatusRepository):
         self._status_repo = status_repo
 
+    async def get_by_id(self, order_id: uuid.UUID) -> Optional[OrderStatus]:
+        """
+        Recupera lo stato di un ordine tramite il suo ID in modo non bloccante.
+        """
+        # Eseguiamo la chiamata bloccante del repository in un thread separato.
+        status = await asyncio.to_thread(self._status_repo.get_by_id, order_id)
+        
+        if not status:
+            print(f"INFO (StatusService): Nessuno stato trovato per l'ordine {order_id}.")
+        
+        return status
+    
     async def create_initial_status(self, order: Order) -> Optional[OrderStatus]:
         """Crea il record di stato iniziale quando un ordine viene assegnato."""
         if not order.kitchen_id:
@@ -39,7 +51,6 @@ class OrderStatusService:
         print(f"INFO (StatusService): Tentativo di aggiornare lo stato dell'ordine {order_id} a '{new_status.value}'...")
         
         # Eseguiamo la chiamata bloccante 'update_status' del repository in un thread separato.
-        # Questo libera l'event loop per gestire altre operazioni.
         success = await asyncio.to_thread(self._status_repo.update_status, order_id, new_status)
         
         if success:

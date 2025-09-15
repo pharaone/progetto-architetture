@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 class StatusEnum(str, Enum):
     """Stati possibili di un ordine."""
+    PENDING = "pending"
     RECEIVED = "received"
     PREPARING = "preparing"
     READY_FOR_PICKUP = "ready_for_pickup"

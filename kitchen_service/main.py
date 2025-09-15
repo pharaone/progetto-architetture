@@ -1,70 +1,75 @@
-# file: main.py
-
-import asyncio
+# main.py
+import logging
+from contextlib import asynccontextmanager
+import uuid
+from typing import List
 import uvicorn
-# 1. Importiamo i componenti chiave già istanziati nel file dell'API.
-#    Questo è fondamentale per garantire che sia l'API sia il Consumer
-#    usino le STESSE istanze dei servizi e dei repository.
-from api.api import app, orchestration_service, event_producer
+from fastapi import FastAPI
+from redis.cluster import ClusterNode
 
-# 2. Importiamo la classe del nostro consumatore di eventi.
-from consumers.consumers import EventConsumer
+from settings import settings  # <- la nostra istanza pydantic
+from repository.kitchen_repository import KitchenAvailabilityRepository
+from repository.menu_repository import MenuRepository
+from repository.order_repository import OrderRepository
+from repository.order_status_repository import OrderStatusRepository
+from service.kitchen_service import KitchenService
+from service.menu_service import MenuService
+from service.status_service import OrderStatusService
+from service.order_service import OrderOrchestrationService
+from producers.producers import EventProducer
+from api.api import router as api_router
 
-# 3. Definiamo le costanti di configurazione in un unico posto.
-KAFKA_BROKERS = "localhost:9092"
-KITCHEN_GROUP_ID = "kitchen-service-group-1"
-API_HOST = "0.0.0.0"
-API_PORT = 8000
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+logger = logging.getLogger("kitchen.main")
 
-async def main():
-    """
-    Funzione principale asincrona che avvia, orchestra e gestisce
-    il ciclo di vita di tutti i componenti del microservizio.
-    """
-    print("🚀 Avvio del Microservizio Cucina...")
+def _cluster_nodes_from_settings():
+    return [ClusterNode(h, p) for (h, p) in settings.redis_nodes()]
 
-    # 1. Istanziamo il consumer, "iniettando" l'orchestratore
-    #    che abbiamo importato dal modulo API.
-    consumer = EventConsumer(
-        bootstrap_servers=KAFKA_BROKERS,
-        orchestrator=orchestration_service,
-        group_id=KITCHEN_GROUP_ID
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Startup: inizializzo repository e servizi...")
+    # repositories
+    app.state.kitchen_repo = KitchenAvailabilityRepository(host=settings.ETCD_HOST, port=settings.ETCD_PORT)
+    app.state.order_repo = OrderRepository(host=settings.ETCD_HOST, port=settings.ETCD_PORT)
+    app.state.order_status_repo = OrderStatusRepository(host=settings.ETCD_HOST, port=settings.ETCD_PORT)
+    # menu repo con redis cluster nodes
+    app.state.menu_repo = MenuRepository(redis_cluster_nodes=_cluster_nodes_from_settings())
+
+    # event producer
+    app.state.event_producer = EventProducer(bootstrap_servers=settings.KAFKA_BROKERS)
+    await app.state.event_producer.start()
+    logger.info("Producer Kafka avviato.")
+
+    # servizi
+    app.state.kitchen_service = KitchenService(kitchen_repo=app.state.kitchen_repo)
+    app.state.menu_service = MenuService(menu_repo=app.state.menu_repo)
+    app.state.status_service = OrderStatusService(status_repo=app.state.order_status_repo)
+    app.state.orchestration_service = OrderOrchestrationService(
+        order_repo=app.state.order_repo,
+        kitchen_service=app.state.kitchen_service,
+        menu_service=app.state.menu_service,
+        status_service=app.state.status_service,
+        event_producer=app.state.event_producer,
     )
 
-    # 2. Prepariamo la configurazione per il server web Uvicorn.
-    config = uvicorn.Config(app, host=API_HOST, port=API_PORT, log_level="info")
-    server = uvicorn.Server(config)
+    # config & id cucina
+    app.state.internal_api_key = settings.INTERNAL_API_KEY
+    app.state.kitchen_id = settings.KITCHEN_ID
+    logger.info("Inizializzazione completata. Kitchen ID: %s", app.state.kitchen_id)
 
-    # 3. Usiamo un blocco try...finally per garantire uno spegnimento pulito.
     try:
-        # 4. Avviamo i componenti di messaging (producer e consumer).
-        #    È importante avviarli prima di iniziare ad ascoltare.
-        await event_producer.start()
-        await consumer.start()
-
-        # 5. Creiamo due "task" concorrenti: uno per il server API
-        #    e uno per il loop di ascolto del consumer Kafka.
-        api_task = asyncio.create_task(server.serve())
-        consumer_task = asyncio.create_task(consumer.listen())
-
-        # 6. `asyncio.gather` li esegue in parallelo. Il programma rimarrà
-        #    in questa riga finché uno dei due task non terminerà o non verrà interrotto.
-        await asyncio.gather(api_task, consumer_task)
-
-    except Exception as e:
-        print(f"🔥 ERRORE CRITICO durante l'esecuzione: {e}")
+        yield
     finally:
-        # 7. Quando usciamo dal programma (es. con Ctrl+C), questa sezione
-        #    garantisce che le connessioni vengano chiuse correttamente.
-        print("\n🛑 Spegnimento dei servizi...")
-        await consumer.stop()
-        await event_producer.stop()
-        print("✅ Microservizio Cucina fermato correttamente.")
+        logger.info("Shutdown: arresto producer...")
+        await app.state.event_producer.stop()
+        logger.info("Producer fermato.")
+
+app = FastAPI(title="Kitchen Service API", version="1.0.0", lifespan=lifespan)
+app.include_router(api_router, prefix=settings.API_PREFIX)
+
+@app.get("/health", tags=["health"])
+async def health():
+    return {"status": "ok", "kitchen_id": str(app.state.kitchen_id)}
 
 if __name__ == "__main__":
-    try:
-        # Eseguiamo la nostra funzione principale asincrona.
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        # Gestisce l'interruzione manuale (Ctrl+C) in modo pulito.
-        print("\n🚦 Rilevato arresto manuale...")
+    uvicorn.run("main:app", host=settings.HOST, port=settings.PORT, workers=settings.WORKERS, log_level="info")
