@@ -1,10 +1,6 @@
 # Dockerfile (migliorato)
 FROM python:3.11-slim
 
-# metadata (opzionale)
-LABEL maintainer="tuo@esempio.com" \
-      org.opencontainers.image.source="."
-
 # impostazioni base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
