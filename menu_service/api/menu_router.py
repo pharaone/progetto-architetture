@@ -2,7 +2,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form
 
-from menu_service.service.menu_service import MenuService
+from menu_service.service.menu_service import MenuService, get_menu_service
 
 router = APIRouter(prefix="/menu", tags=["menu"])
 
