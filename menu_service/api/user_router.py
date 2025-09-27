@@ -1,0 +1,38 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from starlette import status
+
+from menu_service.config.config import get_session
+from menu_service.service.user_service import UserService, get_user_service
+
+router = APIRouter(prefix="/users", tags=["users"])
+
+class UserLogin:
+    email: str
+    password: str
+
+@router.post("/register")
+def register(user: UserLogin, session: Session = Depends(get_session)):
+    service: UserService = get_user_service(session)
+    try:
+        service.new_user(user.email, user.password)
+        return {"message": "User registered successfully"}
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.post("/login")
+def login(user: UserLogin, session: Session = Depends(get_session)):
+    service: UserService = get_user_service(session)
+    auth_user = service.get_user(user.email, user.password)
+    if not auth_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    return {"message": "Login successful"}
+
+@router.post("/confirm")
+def confirm_user(user: UserLogin, session: Session = Depends(get_session)):
+    service: UserService = get_user_service(session)
+    confirmed = service.confirm_user(user.email, user.password)
+    if confirmed:
+        return {"message": "User confirmed"}
+    else:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found or invalid credentials")

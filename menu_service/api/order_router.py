@@ -9,7 +9,7 @@ router = APIRouter(prefix="/orders", tags=["menu"])
 @router.post("/new_order")
 async def new_order(
     dish_id: uuid.UUID,
-    user_id: uuid.UUID,
+    user_id: int,
     order_service: OrderService = Depends(get_order_service)
 ):
     return order_service.new_order(dish_id, user_id)
