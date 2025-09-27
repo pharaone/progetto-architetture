@@ -20,7 +20,7 @@ async def get_dish(
     dish_id: uuid.UUID,
     menu_service: MenuService = Depends(get_menu_service)
 ):
-    return menu_service.get_dish(order_id, user_id)
+    return menu_service.get_dish(dish_id)
 
 @router.get("/get_menu")
 async def get_menu(
