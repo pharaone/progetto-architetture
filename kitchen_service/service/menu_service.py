@@ -1,4 +1,3 @@
-# cartella: service/menu_service.py
 
 import uuid
 import asyncio

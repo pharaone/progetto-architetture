@@ -7,9 +7,8 @@ from menu_service.repository.order_repository import OrderRepository
 
 
 class OrderService:
-    def __init__(self, session: Session):
-        self.session = session
-        self.order_repo = OrderRepository(session)
+    def __init__(self, order_repo : OrderRepository):
+        self.order_repo = order_repo
 
     def new_order(self, dish_id: uuid.UUID, user_id: int) -> Order:
         """Create a new order for a user."""
@@ -27,8 +26,3 @@ class OrderService:
         """Get all orders for a specific user."""
         all_orders = self.order_repo.get_all()
         return [order for order in all_orders if order.user_id == user_id]
-
-
-# Factory function
-def get_order_service(session: Session) -> OrderService:
-    return OrderService(session)

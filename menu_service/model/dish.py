@@ -2,7 +2,7 @@ import uuid
 from sqlalchemy import Column, String, Float, UUID
 from sqlalchemy.orm import declarative_base
 
-Base = declarative_base()
+from menu_service.db.base import Base
 
 
 class Dish(Base):

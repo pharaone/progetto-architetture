@@ -6,9 +6,8 @@ from menu_service.repository.user_repository import UserRepository
 
 
 class UserService:
-    def __init__(self, session: Session):
-        self.session = session
-        self.user_repo = UserRepository(session)
+    def __init__(self, user_repo : UserRepository):
+        self.user_repo = user_repo
 
     def hash_password(self, password: str) -> str:
         """Hash the password using SHA-256."""

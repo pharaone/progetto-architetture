@@ -3,12 +3,15 @@ import uuid
 from sqlalchemy import Column, UUID, ForeignKey, Integer
 from sqlalchemy.orm import relationship, declarative_base
 
-Base = declarative_base()
+from menu_service.db.base import Base
+
 
 class Order(Base):
 
     __tablename__ = "orders"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
+
+    kitchen_id = Column(UUID(as_uuid=True))
 
     dish_id = Column(UUID(as_uuid=True), ForeignKey("dishes.id"), nullable=False)
     dish = relationship("Dish", backref="orders")

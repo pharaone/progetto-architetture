@@ -6,9 +6,8 @@ from menu_service.repository.dish_repository import DishRepository
 
 
 class MenuService:
-    def __init__(self, session: Session):
-        self.session = session
-        self.dish_repo = DishRepository(session)
+    def __init__(self, repository: DishRepository):
+        self.dish_repo = repository
 
     def get_menu(self) -> list[Dish]:
         """Return all dishes in the menu."""
@@ -23,6 +22,3 @@ class MenuService:
         """Retrieve a single dish by its ID."""
         return self.dish_repo.get_by_id(dish_id)
 
-
-def get_menu_service(session: Session) -> MenuService:
-    return MenuService(session)
