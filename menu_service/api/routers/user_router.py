@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from starlette import status
 
 from menu_service.config.dependecies_services import get_user_service
@@ -6,7 +7,7 @@ from menu_service.service.user_service import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
 
-class UserLogin:
+class UserLogin(BaseModel):
     email: str
     password: str
 

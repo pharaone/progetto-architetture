@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaConnectionError
@@ -25,9 +26,3 @@ class EventProducer:
         if self._started:
             await self._producer.stop()
             print("🛑 PRODUCER: Disconnesso da Kafka.")
-
-    async def publish_acceptance_response(self, kitchen_id: uuid.UUID, order_id: uuid.UUID, can_handle: bool):
-        """Pubblica la risposta di 'candidatura' per un ordine (Fase 1)."""
-        message = {"kitchen_id": kitchen_id, "order_id": order_id, "can_handle": can_handle}
-        await self._producer.send_and_wait(ACCEPTANCE_RESPONSE_TOPIC, value=message)
-        print(f"📬 PRODUCER (Fase 1): Candidatura per ordine {order_id} inviata: {'Sì' if can_handle else 'No'}")

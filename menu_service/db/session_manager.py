@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from openai_app.core.settings import Settings
+from menu_service.config.settings import Settings
 
 
 class SessionManager:

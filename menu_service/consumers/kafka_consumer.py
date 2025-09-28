@@ -1,7 +1,18 @@
 import json
+import logging
 from aiokafka import AIOKafkaConsumer
 from aiokafka.errors import KafkaConnectionError
+from fastapi import Depends
 from pydantic import ValidationError
+
+from menu_service.config.dependecies_configuration import get_settings
+from menu_service.config.settings import Settings
+from menu_service.consumers.message.order_status_message import OrderStatusMessage
+from menu_service.service.order_service import OrderService
+
+logger = logging.getLogger(__name__)
+
+ORDER_STATUS_TOPIC = "order_status_topic"
 
 
 class EventConsumer:
@@ -9,57 +20,52 @@ class EventConsumer:
     Ascolta i messaggi da Kafka e avvia la logica di business appropriata.
     """
 
-    def __init__(self, bootstrap_servers: str, group_id: str):
+    def __init__(self, order_service: OrderService):
         self._consumer = AIOKafkaConsumer(
-            AVAILABILITY_REQUEST_TOPIC,
-            ORDER_ASSIGNMENT_TOPIC,
-            ORDER_STATUS_REQUEST_TOPIC,
-            bootstrap_servers=bootstrap_servers,
-            value_deserializer=lambda v: json.loads(v.decode('utf-8')),
-            group_id=group_id,
-            auto_offset_reset="latest"
+            ORDER_STATUS_TOPIC,
+            bootstrap_servers=get_settings().KAFKA_BROKERS,
+            group_id=get_settings().GROUP_ID,
+            value_deserializer=lambda v: json.loads(v.decode("utf-8")),
+            auto_offset_reset="latest",
+            enable_auto_commit=False,  # commit manuale
         )
-        self._orchestrator = orchestrator
         self._started = False
+        self._order_service = order_service
 
     async def start(self):
-        if self._started: return
+        if self._started:
+            return
         try:
             await self._consumer.start()
             self._started = True
-            print("✅ CONSUMER: Connesso a Kafka.")
+            logger.info("✅ CONSUMER: Connesso a Kafka.")
         except KafkaConnectionError as e:
-            raise KafkaConnectionError(f"❌ ERRORE CRITICO (Consumer): Impossibile connettersi a Kafka - {e}")
+            logger.error(f"❌ Errore critico: impossibile connettersi a Kafka - {e}")
+            raise
 
     async def stop(self):
         if self._started:
             await self._consumer.stop()
-            print("🛑 CONSUMER: Disconnesso da Kafka.")
+            logger.info("🛑 CONSUMER: Disconnesso da Kafka.")
+            self._started = False
 
     async def listen(self):
-        if not self._started: return
-        print(f"🎧 CONSUMER: In ascolto sui topic...")
+        if not self._started:
+            return
+        logger.info("🎧 CONSUMER: In ascolto su topic...")
 
         async for msg in self._consumer:
-            print(f"📬 CONSUMER: Messaggio ricevuto su topic '{msg.topic}'")
+            logger.info(f"📬 Messaggio ricevuto su topic '{msg.topic}'")
             try:
-                # --- Logica di smistamento basata sul topic ---
+                if msg.topic == ORDER_STATUS_TOPIC:
+                    request = OrderStatusMessage(**msg.value)
+                    self._order_service.update_order_status(request)
 
-                if msg.topic == AVAILABILITY_REQUEST_TOPIC:
-                    # MIGLIORAMENTO: La validazione ora è nel blocco try
-                    request = OrderRequest(**msg.value)
-                    await self._orchestrator.check_availability_and_propose(request)
+                await self._consumer.commit()
 
-                elif msg.topic == ORDER_ASSIGNMENT_TOPIC:
-                    order_data = Order(**msg.value)
-                    await self._orchestrator.handle_newly_assigned_order(order_data)
-
-                elif msg.topic == ORDER_STATUS_REQUEST_TOPIC:
-                    request = StatusRequest(**msg.value)
-                    await self._orchestrator.get_and_publish_status(request.order_id, request.kitchen_id)
-
-            # MIGLIORAMENTO: Ora cattura anche gli errori di validazione Pydantic
             except ValidationError as e:
-                print(f"🔥 ERRORE di validazione del messaggio: {e}")
+                logger.error(f"🔥 Errore di validazione: {e}")
+                # TODO: inviare a DLQ
             except Exception as e:
-                print(f"🔥 ERRORE durante l'elaborazione del messaggio dal topic {msg.topic}: {e}")
+                logger.exception(f"🔥 Errore durante l'elaborazione: {e}")
+                # TODO: inviare a DLQ
