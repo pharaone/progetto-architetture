@@ -1,7 +1,5 @@
 import uuid
 
-from sqlalchemy.orm import Session
-
 from menu_service.model.order import Order
 from menu_service.repository.order_repository import OrderRepository
 
@@ -26,3 +24,8 @@ class OrderService:
         """Get all orders for a specific user."""
         all_orders = self.order_repo.get_all()
         return [order for order in all_orders if order.user_id == user_id]
+
+    def assign_order(self, order_id: uuid.UUID, kitchen_id: uuid.UUID) -> Order:
+        order = self.order_repo.get_by_id(order_id)
+        order.kitchen_id = kitchen_id
+        return self.order_repo.update(order)
