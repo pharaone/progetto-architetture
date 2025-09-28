@@ -7,8 +7,7 @@ from menu_service.repository.order_repository import OrderRepository
 
 
 class OrderService:
-    def __init__(self, order_repo : OrderRepository,
-                 event_producer: EventProducer):
+    def __init__(self, order_repo : OrderRepository):
         self.order_repo = order_repo
 
     def new_order(self, dish_id: uuid.UUID, user_id: int) -> Order:
