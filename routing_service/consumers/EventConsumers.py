@@ -5,7 +5,7 @@ from aiokafka import AIOKafkaConsumer
 from routing_service.producers.EventProducer import EventProducer
 from routing_service.service.MenuRoutingService import MenuRoutingService
 
-class EventConsumer:
+class EventConsumers:
     """
     Consumer:
       - accettazione → passa a MenuRoutingService.on_acceptance(...)

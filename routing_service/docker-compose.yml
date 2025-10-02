@@ -1,0 +1,56 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    environment:
+      CLUSTER_ID: "LcZrKQ9hQx6aWc3xv9Z9LQ"
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # 🔑 Doppio listener: interno + esterno
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    ports:
+      - "9092:9092"   # interno per altri container (puoi anche non esporlo)
+      - "9094:9094"   # esterno per PyCharm
+    healthcheck:
+      test: [ "CMD", "bash", "-lc", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    networks: [ appnet ]
+
+
+  routing-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: routing-service
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      - PORT=8080
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - MENU_SERVICE_URL=http://menu-service:8081
+      - WINDOW_MS=15000
+      - TOPIC_DISPONIBILITA=disponibilita
+      - TOPIC_CONFERMA=conferma_ordine
+      - TOPIC_STATUS=status
+      - TOPIC_ORDERSTATUS=orderstatus
+    ports:
+      - "8080:8080"
+    networks: [appnet]
+
+networks:
+  appnet:
+    driver: bridge

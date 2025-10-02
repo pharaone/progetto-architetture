@@ -13,7 +13,7 @@ from .status_service import OrderStatusService
 class OrderOrchestrationService:
     """
     Servizio principale che orchestra gli altri servizi per gestire il ciclo di vita di un ordine.
-    Ora non richiede più kitchen_id dal client.
+    Ora non richiede più kitchen_id dal clients.
     """
     def __init__(self, 
                  order_repo: OrderRepository,
@@ -29,7 +29,7 @@ class OrderOrchestrationService:
 
     async def check_availability_and_propose(self, request: OrderRequest):
         """
-        Fase 1: il client invia solo dish_id e order_id.
+        Fase 1: il clients invia solo dish_id e order_id.
         Itera tutte le cucine operative e pubblica le candidature.
         """
         kitchens = await self._kitchen_service.get_all_operational()

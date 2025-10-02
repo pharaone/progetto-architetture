@@ -16,7 +16,7 @@ class OrderRequest(BaseModel):
 class StatusRequest(BaseModel):
     """
     Modello per il messaggio di richiesta stato (Fase 3).
-    Inviato da un client esterno (es. app utente) per sapere lo stato di un ordine.
+    Inviato da un clients esterno (es. app utente) per sapere lo stato di un ordine.
     """
     order_id: uuid.UUID
    
