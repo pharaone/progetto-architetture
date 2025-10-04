@@ -4,7 +4,7 @@ import redis
 from redis.cluster import RedisCluster, ClusterNode
 from typing import Optional, List
 from uuid import UUID
-from model.menu import MenuItem, Menu # Assumendo che i tuoi modelli siano in model/menu.py
+from model.menu import MenuItem 
 
 # ======================================================================
 # --- Script Lua per Operazioni Atomiche sulla Quantità ---
@@ -40,86 +40,53 @@ return new_quantity
 
 class MenuRepository:
     def __init__(self, redis_cluster_nodes: List[ClusterNode]):
-        """
-        MIGLIORAMENTO: Sostituisce il dizionario in-memory con una connessione a Redis Cluster.
-        """
         try:
-            self.redis = RedisCluster(startup_nodes=redis_cluster_nodes, decode_responses=True)
+            self.redis = RedisCluster(startup_nodes=redis_cluster_nodes, decode_responses=True, host_port_remap=True)
             self.redis.ping()
             print("✅ REPOSITORY: Connesso a Redis Cluster.")
         except redis.exceptions.RedisClusterException as e:
             print(f"🔥 ERRORE CRITICO: Impossibile connettersi a Redis Cluster. Dettagli: {e}")
             raise
             
-        # Registra lo script Lua per renderlo efficiente
+        # Registra gli script Lua
         self.decrement_script = self.redis.register_script(DECREMENT_QUANTITY_SCRIPT)
         self.increment_script = self.redis.register_script(INCREMENT_QUANTITY_SCRIPT)
 
-    def _menu_key(self, kitchen_id: UUID) -> str:
-        """Helper per generare la chiave Redis per il menu di una cucina."""
-        return f"menu:{str(kitchen_id)}"
+    def _menu_key(self) -> str:
+        """Restituisce la chiave Redis fissa per tutti i piatti."""
+        return "menu_global"
 
-    # --- Metodi Esistenti, Adattati per Redis ---
+    # --- Metodi Redis ---
 
-    def create_menu_item(self, kitchen_id: UUID, menu_item: MenuItem) -> None:
-        """
-        MIGLIORAMENTO: Crea o aggiorna un piatto usando HSET in Redis.
-        """
-        key = self._menu_key(kitchen_id)
-        # HSET in Redis aggiunge o aggiorna un campo in un hash. Perfetto per questo caso.
+    def create_menu_item(self, menu_item: MenuItem) -> None:
+        """Crea o aggiorna un piatto usando HSET."""
+        key = self._menu_key()
         self.redis.hset(key, str(menu_item.dish_id), menu_item.json())
 
-    def get_menu_item(self, kitchen_id: UUID, dish_id: UUID) -> Optional[MenuItem]:
-        """
-        MIGLIORAMENTO: Recupera un piatto specifico usando HGET da Redis.
-        """
-        key = self._menu_key(kitchen_id)
+    def get_menu_item(self, dish_id: UUID) -> Optional[MenuItem]:
+        """Recupera un piatto specifico usando HGET."""
+        key = self._menu_key()
         item_json = self.redis.hget(key, str(dish_id))
-        
         if not item_json:
             return None
         return MenuItem.parse_raw(item_json)
 
-    def delete_menu_item(self, kitchen_id: UUID, dish_id: UUID) -> bool:
-        """
-        MIGLIORAMENTO: Elimina un piatto dal menu usando HDEL di Redis.
-        """
-        key = self._menu_key(kitchen_id)
-        # HDEL restituisce 1 se il campo è stato eliminato, 0 altrimenti.
+    def delete_menu_item(self, dish_id: UUID) -> bool:
+        """Elimina un piatto usando HDEL."""
+        key = self._menu_key()
         result = self.redis.hdel(key, str(dish_id))
         return result == 1
 
-    def get_menu(self, kitchen_id: UUID) -> Optional[Menu]:
-        """
-        MIGLIORAMENTO: Recupera tutti i piatti di un menu usando HGETALL da Redis.
-        """
-        key = self._menu_key(kitchen_id)
-        all_items_json = self.redis.hgetall(key)
-        
-        if not all_items_json:
-            return None
-            
-        # Deserializza tutti i JSON dei piatti
-        items = [MenuItem.parse_raw(item_json) for item_json in all_items_json.values()]
-        
-        return Menu(kitchen_id=kitchen_id, items=items)
+    # --- Metodi atomici per quantità ---
 
-    # --- NUOVI Metodi Atomici per Aggiornare la Quantità ---
-
-    def atomic_decrement_quantity(self, kitchen_id: UUID, dish_id: UUID) -> int:
-        """
-        NUOVO: Decrementa la quantità di un piatto in modo sicuro e atomico.
-        Restituisce un codice di stato che il Service dovrà interpretare.
-        """
-        key = self._menu_key(kitchen_id)
+    def atomic_decrement_quantity(self, dish_id: UUID) -> int:
+        """Decrementa la quantità di un piatto in modo atomico."""
+        key = self._menu_key()
         result = self.decrement_script(keys=[key], args=[str(dish_id)])
         return int(result)
     
-    def atomic_increment_quantity(self, kitchen_id: UUID, dish_id: UUID, amount: int = 1) -> int:
-        """
-        Incrementa la quantità di un piatto in modo sicuro e atomico.
-        Restituisce la nuova quantità o un codice di errore.
-        """
-        key = self._menu_key(kitchen_id)
+    def atomic_increment_quantity(self, dish_id: UUID, amount: int = 1) -> int:
+        """Incrementa la quantità di un piatto in modo atomico."""
+        key = self._menu_key()
         result = self.increment_script(keys=[key], args=[str(dish_id), str(amount)])
         return int(result)

@@ -6,10 +6,14 @@ from model.status import OrderStatus
 import uuid
 from aiokafka import AIOKafkaProducer
 from aiokafka.errors import KafkaConnectionError
+import logging
+import asyncio
+
+logger = logging.getLogger(__name__)
 
 # Nomi dei topic su cui il servizio CUCINA pubblica i messaggi
-ACCEPTANCE_RESPONSE_TOPIC = "acceptance_responses"  # Risposte alla Fase 1
-STATUS_UPDATE_TOPIC = "status_updates"              # Risposte alla Fase 3
+ACCEPTANCE_RESPONSE_TOPIC = "accettazione"  
+STATUS_UPDATE_TOPIC = "status_updates"           
 
 class EventProducer:
     """
@@ -22,14 +26,19 @@ class EventProducer:
         )
         self._started = False
 
-    async def start(self):
-        if self._started: return
-        try:
-            await self._producer.start()
-            self._started = True
-            print("✅ PRODUCER: Connesso a Kafka.")
-        except KafkaConnectionError as e:
-            raise KafkaConnectionError(f"❌ ERRORE CRITICO (Producer): Impossibile connettersi a Kafka - {e}")
+    async def start(self, retries=5, delay=3):
+        for attempt in range(retries):
+            try:
+                await self._producer.start()
+                logger.info("✅ PRODUCER: Connesso a Kafka.")
+                return  # Esce dalla funzione se la connessione ha successo
+            except KafkaConnectionError as e:
+                if attempt < retries - 1:
+                    logger.warning(f"Tentativo {attempt + 1}/{retries} fallito. Impossibile connettersi a Kafka. Riprovo tra {delay} secondi...")
+                    await asyncio.sleep(delay)
+                else:
+                    logger.error(f"Tutti i {retries} tentativi di connessione a Kafka sono falliti.")
+                    raise KafkaConnectionError(f"❌ ERRORE CRITICO (Producer): Impossibile connettersi a Kafka - {e}")
 
     async def stop(self):
         if self._started:

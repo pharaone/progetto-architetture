@@ -1,49 +1,62 @@
-# cartella: repository/kitchen_repository.py
 import uuid
-from typing import Optional, List
-import etcd3  # Importa la libreria etcd3 per la connessione
+import json
+from typing import Optional
+import etcd3
 from model.kitchen import KitchenAvailability
 
 class KitchenAvailabilityRepository:
     """
-    Repository per la disponibilità delle cucine che usa etcd come backend.
+    Repository per la disponibilità di UNA SPECIFICA cucina, che usa etcd come backend.
+    Tutte le operazioni implicite (get, update) utilizzano il kitchen_id fornito nell'init.
     """
     
     _KEY_PREFIX = '/kitchens/availability/'
 
-    def __init__(self, host: str = 'localhost', port: int = 2379):
+    def __init__(self, kitchen_id: uuid.UUID, host: str = 'localhost', port: int = 2379):
         """
-        Inizializza il repository con una connessione a etcd.
+        Inizializza il repository con una connessione a etcd e associa l'istanza a un
+        singolo kitchen_id.
         """
         try:
+            self.kitchen_id = kitchen_id  # L'ID della singola cucina gestita da questa istanza
             self.etcd = etcd3.client(host=host, port=port)
-            self.etcd.status()  # Verifica la connessione
+            self.etcd.status() 
             print("✅ REPOSITORY: Connesso a etcd.")
         except Exception as e:
             print(f"🔥 ERRORE CRITICO: Impossibile connettersi a etcd. Dettagli: {e}")
             raise
+        if self.get_by_id() is None:
+            print(f"Nessun dato trovato per la cucina {self.kitchen_id}, inizializzo con valori di default...")
+            self.save(KitchenAvailability(
+                kitchen_id=self.kitchen_id,
+                current_load=0,
+                max_load=10,
+                is_operational=True
+            ))
+            # 3. Salva l'oggetto
+            print(f"✅ Dati iniziali salvati per la cucina {self.kitchen_id}.")
 
     def _get_key(self, kitchen_id: uuid.UUID) -> str:
-        """Helper per generare la chiave etcd per una cucina."""
+        """Helper per generare la chiave etcd per una cucina (richiede un ID esplicito)."""
         return f"{self._KEY_PREFIX}{str(kitchen_id)}"
-
+    
     def save(self, availability: KitchenAvailability) -> None:
         """
-        Salva lo stato completo di una cucina su etcd, serializzando il modello.
+        Salva lo stato completo della cucina unica su etcd.
         """
-        key = self._get_key(availability.kitchen_id)
-        # Usa .model_dump_json() per serializzare il Pydantic model in JSON
+        key = self._get_key(self.kitchen_id)
         self.etcd.put(key, availability.model_dump_json())
 
-    def update_fields(self, kitchen_id: uuid.UUID, current_load: Optional[int] = None,
+    def update_fields(self, current_load: Optional[int] = None,
                       max_load: Optional[int] = None,
                       is_operational: Optional[bool] = None) -> bool:
         """
-        Aggiorna uno o più campi di una cucina in modo atomico usando una transazione.
+        Aggiorna uno o più campi della cucina associata in modo atomico.
+        Non richiede il kitchen_id come argomento, usa self.kitchen_id.
         """
-        key = self._get_key(kitchen_id)
+        key = self._get_key(self.kitchen_id)
         
-        # Loop per gestire i tentativi in caso di fallimento della transazione
+        # Loop per gestire i tentativi in caso di fallimento della transazione (ottimistic locking)
         while True:
             # 1. READ: Recupera l'oggetto e la sua revisione
             value, metadata = self.etcd.get(key)
@@ -69,7 +82,7 @@ class KitchenAvailabilityRepository:
             # Operazione di successo: salva il nuovo valore serializzato
             success_operation = self.etcd.transactions.put(key, existing_availability.model_dump_json())
             
-            # Esegue la transazione. Successo o fallimento è gestito da etcd.
+            # Esegue la transazione.
             success, _ = self.etcd.transaction(
                 compare=[compare_condition],
                 success=[success_operation],
@@ -79,14 +92,15 @@ class KitchenAvailabilityRepository:
             if success:
                 # Se la transazione è andata a buon fine, usciamo dal loop
                 return True
-            # Se la transazione è fallita, un altro processo ha modificato il dato.
-            # Il loop `while True` riproverà l'intera operazione.
+            # Se fallisce, riprova (ottimistic locking)
 
-    def get_by_id(self, kitchen_id: uuid.UUID) -> Optional[KitchenAvailability]:
+    def get_by_id(self) -> Optional[KitchenAvailability]:
         """
-        Recupera lo stato di una cucina tramite il suo ID da etcd.
+        Recupera lo stato della cucina associata a questa istanza da etcd.
+        Non richiede il kitchen_id come argomento.
         """
-        key = self._get_key(kitchen_id)
+        key = self._get_key(self.kitchen_id)
+        print(f"🔍 DEBUG: Sto cercando la chiave '{key}' in etcd.")
         value, _ = self.etcd.get(key)
         
         if value is None:
@@ -94,16 +108,3 @@ class KitchenAvailabilityRepository:
         
         # Usa .model_validate_json() per deserializzare il JSON in un Pydantic model
         return KitchenAvailability.model_validate_json(value)
-
-    def get_all(self) -> List[KitchenAvailability]:
-        """
-        Recupera lo stato di tutte le cucine salvate sotto il prefisso.
-        """
-        availabilities = []
-        # Usa get_prefix per trovare tutte le chiavi che iniziano con il nostro prefisso
-        results = self.etcd.get_prefix(self._KEY_PREFIX)
-        for value, _ in results:
-            availabilities.append(
-                KitchenAvailability.model_validate_json(value)
-            )
-        return availabilities

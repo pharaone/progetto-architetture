@@ -3,19 +3,22 @@
 import uuid
 import asyncio
 from typing import Optional
-
+from producers.producers import EventProducer
 # Importa i tuoi modelli e il repository
-from model.order import Order
 from model.status import OrderStatus, StatusEnum
 from repository.order_status_repository import OrderStatusRepository
+from repository.kitchen_repository import KitchenAvailabilityRepository
 
 class OrderStatusService:
     """
     Servizio ASINCRONO specializzato nella gestione dello stato degli ordini.
     Usa asyncio.to_thread per chiamare il repository sincrono in modo non bloccante.
     """
-    def __init__(self, status_repo: OrderStatusRepository):
+    def __init__(self, status_repo: OrderStatusRepository, producer: EventProducer, kitchen_repo: KitchenAvailabilityRepository):
         self._status_repo = status_repo
+        self._producer = producer
+        self._kitchen_repository = kitchen_repo
+
 
     async def get_by_id(self, order_id: uuid.UUID) -> Optional[OrderStatus]:
         """
@@ -29,33 +32,39 @@ class OrderStatusService:
         
         return status
     
-    async def create_initial_status(self, order: Order) -> Optional[OrderStatus]:
-        """Crea il record di stato iniziale quando un ordine viene assegnato."""
-        if not order.kitchen_id:
-            return None
-            
-        status = OrderStatus(
-            order_id=order.order_id,
-            kitchen_id=order.kitchen_id,
-            status=StatusEnum.RECEIVED
+    async def update_status(self, order_id: uuid.UUID, new_status: StatusEnum) -> bool:
+        """
+        Chiama il repository per aggiornare lo stato e, se l'aggiornamento avviene,
+        pubblica la notifica su Kafka.
+        """
+        print(f"SERVICE: Tentativo di aggiornare l'ordine {order_id} a '{new_status.value}'...")
+        
+        # --- MODIFICA 1: Cattura l'oggetto restituito, non un booleano ---
+        # Usiamo un nome di variabile più descrittivo
+        updated_status_obj = await asyncio.to_thread(
+            self._status_repo.update_status, order_id, new_status
         )
         
-        # Eseguiamo la chiamata bloccante 'save' in un thread separato
-        await asyncio.to_thread(self._status_repo.save, status)
-        
-        print(f"INFO (StatusService): Stato iniziale creato per l'ordine {order.order_id}")
-        return status
-
-    async def update_status(self, order_id: uuid.UUID, new_status: StatusEnum) -> bool:
-        """Aggiorna lo stato di un ordine esistente in modo sicuro e non bloccante."""
-        print(f"INFO (StatusService): Tentativo di aggiornare lo stato dell'ordine {order_id} a '{new_status.value}'...")
-        
-        # Eseguiamo la chiamata bloccante 'update_status' del repository in un thread separato.
-        success = await asyncio.to_thread(self._status_repo.update_status, order_id, new_status)
-        
-        if success:
-            print(f"INFO (StatusService): Stato per l'ordine {order_id} aggiornato con successo.")
-        else:
-            print(f"ERROR (StatusService): Fallito l'aggiornamento dello stato per l'ordine {order_id}.")
+        # --- MODIFICA 2: Controlla se l'oggetto non è None ---
+        if updated_status_obj:
+            # L'aggiornamento è avvenuto con successo!
+            print(f"SERVICE: Stato per l'ordine {order_id} aggiornato. Notifica in corso...")
             
-        return success
+            # --- MODIFICA 3: Usa l'oggetto COMPLETO restituito dal repository ---
+            await self._producer.publish_status_update(updated_status_obj)
+            
+            return True # L'operazione complessiva è riuscita
+        else:
+            # L'aggiornamento non è avvenuto (o non era necessario, o l'ordine non esiste).
+            # Il repository ha già gestito la logica.
+            print(f"SERVICE: Nessun aggiornamento necessario per l'ordine {order_id}.")
+            
+            return False # L'operazione di "update" non è avvenuta
+    
+    async def save(self, order_status: OrderStatus) -> None:
+        """Salva lo stato di un ordine in modo non bloccante."""
+        print(f"SERVICE: Salvataggio dello stato per l'ordine {order_status.order_id}")
+        
+        # <<< CORREZIONE 1: Usa _status_repo (con underscore)
+        # <<< CORREZIONE 2: Usa await asyncio.to_thread per non bloccare l'app
+        await asyncio.to_thread(self._status_repo.save, order_status)

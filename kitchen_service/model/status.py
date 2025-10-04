@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime, timezone
 from enum import Enum
 from pydantic import BaseModel, Field
 
@@ -17,6 +16,4 @@ class OrderStatus(BaseModel):
     Modello separato per tracciare lo stato di un ordine in una cucina.
     """
     order_id: uuid.UUID # Per collegarlo al modello Order
-    kitchen_id: uuid.UUID # Per sapere quale cucina lo sta gestendo
-    status: StatusEnum = StatusEnum.RECEIVED
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: StatusEnum = StatusEnum.PENDING

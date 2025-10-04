@@ -33,21 +33,31 @@ class OrderStatusRepository:
         # CORREZIONE: Usa .model_validate_json() invece di .parse_raw()
         return OrderStatus.model_validate_json(value)
 
-    def update_status(self, order_id: uuid.UUID, new_status: StatusEnum) -> bool:
+    def update_status(self, order_id: uuid.UUID, new_status: StatusEnum) -> Optional[OrderStatus]:
+        """
+        Aggiorna lo stato in etcd in modo atomico, ma solo se è diverso da quello attuale.
+
+        - Restituisce l'oggetto OrderStatus aggiornato se la modifica avviene con successo.
+        - Restituisce None se l'ordine non esiste o se lo stato è già quello desiderato.
+        """
         key = self._get_key(order_id)
         
         while True:
             value, metadata = self.etcd.get(key)
             if value is None:
-                return False
+                # Ordine non trovato, nessuna azione possibile.
+                return None
 
-            # CORREZIONE: Usa .model_validate_json()
             current_status = OrderStatus.model_validate_json(value)
+            
+            # Se lo stato è già corretto, nessuna azione necessaria.
+            if current_status.status == new_status:
+                return None
+
+            # Se siamo qui, lo stato deve essere aggiornato.
             mod_revision = metadata.mod_revision
-
             current_status.status = new_status
-
-            # CORREZIONE: Usa .model_dump_json()
+            
             success, _ = self.etcd.transaction(
                 compare=[self.etcd.transactions.mod(key) == mod_revision],
                 success=[self.etcd.transactions.put(key, current_status.model_dump_json())],
@@ -55,4 +65,5 @@ class OrderStatusRepository:
             )
 
             if success:
-                return True
+                # Successo! Restituisci l'oggetto aggiornato.
+                return current_status
