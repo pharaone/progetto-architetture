@@ -5,15 +5,22 @@ from model.order import Order
 from producers.kafka_producer import EventProducer
 from repository.order_repository import OrderRepository
 
+from api.clients.routing_service_client import start_order
+from repository.user_repository import UserRepository
+
 
 class OrderService:
-    def __init__(self, order_repo : OrderRepository):
+    def __init__(self, order_repo : OrderRepository,
+                 user_repo : UserRepository):
         self.order_repo = order_repo
+        self.user_repo = user_repo
 
-    def new_order(self, dish_id: uuid.UUID, user_id: int) -> Order:
+    def new_order(self, dish_id: uuid.UUID, user_id: uuid.UUID) -> Order:
         """Create a new order for a user."""
         order = Order(dish_id=dish_id, user_id=user_id)
         order = self.order_repo.add(order)
+        user = self.user_repo.get_by_id(user_id)
+        start_order(user.region,order.id, user_id)
         return order
 
     def get_order_status(self, order_id: uuid.UUID, user_id: uuid.UUID) -> Order | None:

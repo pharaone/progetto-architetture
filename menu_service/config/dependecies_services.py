@@ -18,8 +18,11 @@ def get_menu_service(
 def get_order_service(
         order_repository: OrderRepository = Depends(
             get_order_repository),
+        user_repository: UserRepository = Depends(
+            get_user_repository
+        )
 ):
-    return OrderService(order_repository)
+    return OrderService(order_repository, user_repository)
 
 def get_user_service(
         user_repository: UserRepository = Depends(

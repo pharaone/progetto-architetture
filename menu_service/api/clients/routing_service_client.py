@@ -2,17 +2,17 @@ import uuid
 
 import requests
 
-from config import settings
+from config.dependecies_configuration import get_settings
 
-BASE_URL = settings.Settings.ROUTING_SERVICE_URL
+BASE_URL = get_settings().ROUTING_SERVICE_URL
 
 
 def start_order(user_region: str, order_id: uuid.UUID, dish_id: uuid.UUID):
     url = f"{BASE_URL}/create-order"
     payload = {
         "user_region": user_region,
-        "order_id": order_id,
-        "dish_id": dish_id,
+        "order_id": str(order_id),
+        "dish_id": str(dish_id),
     }
 
     try:

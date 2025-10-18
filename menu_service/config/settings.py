@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 class Settings(BaseSettings):
     KAFKA_BROKERS: str = "localhost:9092"
-    ROUTING_SERVICE_URL: str = ""
+    ROUTING_SERVICE_URL: str = "localhost:7777"
     GROUP_ID: str = "default_group"
     database_url: str = "mysql://user:password@host/dbname"
 

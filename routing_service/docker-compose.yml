@@ -48,7 +48,7 @@ services:
       - TOPIC_STATUS=status
       - TOPIC_ORDERSTATUS=orderstatus
     ports:
-      - "8080:8080"
+      - "7777:7777"
     networks: [appnet]
 
 networks:

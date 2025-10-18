@@ -32,5 +32,5 @@ ENV PORT=8080 \
 EXPOSE 8080
 
 # avvia puntando al package routing_service
-CMD ["uvicorn", "routing_service.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]
+CMD ["uvicorn", "routing_service.main:app", "--host", "0.0.0.0", "--port", "7777", "--workers", "1"]
 
