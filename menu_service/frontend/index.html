@@ -68,10 +68,32 @@
             <!-- Orders Section -->
             <section id="orders-section" class="section">
                 <div class="section-header">
-                    <h2>I Miei Ordini</h2>
-                    <button id="load-orders-btn" class="btn btn-primary">Carica Ordini</button>
+                    <h2>Gestione Ordini</h2>
                 </div>
                 
+                <div class="order-forms">
+                    <div class="form-card">
+                        <h3>Nuovo Ordine</h3>
+                        <form id="new-order-form">
+                            <input type="text" id="order-dish-id" placeholder="ID Piatto (UUID)" required>
+                            <button type="submit" class="btn btn-primary">Crea Ordine</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>Stato Ordine</h3>
+                        <form id="order-status-form">
+                            <input type="text" id="status-order-id" placeholder="ID Ordine (UUID)" required>
+                            <button type="submit" class="btn btn-primary">Cerca Stato</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>I Miei Ordini</h3>
+                        <button id="load-orders-btn" class="btn btn-primary" style="width: 100%;">Carica I Miei Ordini</button>
+                    </div>
+                </div>
+
                 <div id="orders-results" class="results-container">
                     <!-- Order results will be displayed here -->
                 </div>

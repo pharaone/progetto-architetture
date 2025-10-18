@@ -109,6 +109,8 @@ function initializeForms() {
     document.querySelector('.close').addEventListener('click', hideDishModal);
     
     // Order forms
+    document.getElementById('new-order-form').addEventListener('submit', handleNewOrder);
+    document.getElementById('order-status-form').addEventListener('submit', handleOrderStatus);
     document.getElementById('load-orders-btn').addEventListener('click', handleMyOrders);
     
     // Logout
@@ -324,7 +326,63 @@ async function handleConfirm(event) {
     }
 }
 
-// Order functions (simplified - orders are now created directly from menu)
+// Order functions
+async function handleNewOrder(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('Devi essere autenticato per creare ordini', 'error');
+        return;
+    }
+    
+    const dishId = document.getElementById('order-dish-id').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/orders/new_order?dish_id=${encodeURIComponent(dishId)}&user_id=${encodeURIComponent(currentUser.id)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const order = await response.json();
+            showNotification(`Ordine creato con successo! ID: ${order.id}`, 'success');
+            document.getElementById('new-order-form').reset();
+        } else {
+            const error = await response.json();
+            showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error creating order:', error);
+        showNotification('Errore di connessione', 'error');
+    }
+}
+
+async function handleOrderStatus(event) {
+    event.preventDefault();
+    
+    if (!currentUser) {
+        showNotification('Devi essere autenticato per controllare lo stato ordini', 'error');
+        return;
+    }
+    
+    const orderId = document.getElementById('status-order-id').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?order_id=${encodeURIComponent(orderId)}&user_id=${encodeURIComponent(currentUser.id)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const status = await response.json();
+            displayOrderResult('Stato Ordine', status);
+        } else {
+            const error = await response.json();
+            showNotification(`Errore: ${error.detail || 'Ordine non trovato'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error getting order status:', error);
+        showNotification('Errore di connessione', 'error');
+    }
+}
 
 async function handleMyOrders(event) {
     if (event) event.preventDefault();
@@ -354,12 +412,47 @@ async function handleMyOrders(event) {
 
 function displayOrderResult(title, data) {
     const resultsContainer = document.getElementById('orders-results');
-    resultsContainer.innerHTML = `
-        <div class="result-card">
-            <h4>${title}</h4>
-            <pre style="background: #f7fafc; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
-        </div>
-    `;
+    
+    if (Array.isArray(data) && data.length > 0) {
+        // Display multiple orders
+        let ordersHtml = `<div class="result-card"><h4>${title}</h4>`;
+        data.forEach((order, index) => {
+            ordersHtml += `
+                <div class="order-item" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 10px; background: #f7fafc;">
+                    <h5>Ordine #${index + 1}</h5>
+                    <p><strong>ID:</strong> ${order.id || 'N/A'}</p>
+                    <p><strong>Stato:</strong> ${order.status || 'N/A'}</p>
+                    <p><strong>Piatto ID:</strong> ${order.dish_id || 'N/A'}</p>
+                    <p><strong>Utente ID:</strong> ${order.user_id || 'N/A'}</p>
+                    ${order.created_at ? `<p><strong>Creato:</strong> ${new Date(order.created_at).toLocaleString()}</p>` : ''}
+                </div>
+            `;
+        });
+        ordersHtml += '</div>';
+        resultsContainer.innerHTML = ordersHtml;
+    } else if (data && typeof data === 'object') {
+        // Display single order
+        resultsContainer.innerHTML = `
+            <div class="result-card">
+                <h4>${title}</h4>
+                <div class="order-item" style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #f7fafc;">
+                    <p><strong>ID:</strong> ${data.id || 'N/A'}</p>
+                    <p><strong>Stato:</strong> ${data.status || 'N/A'}</p>
+                    <p><strong>Piatto ID:</strong> ${data.dish_id || 'N/A'}</p>
+                    <p><strong>Utente ID:</strong> ${data.user_id || 'N/A'}</p>
+                    ${data.created_at ? `<p><strong>Creato:</strong> ${new Date(data.created_at).toLocaleString()}</p>` : ''}
+                </div>
+            </div>
+        `;
+    } else {
+        // Fallback to JSON display
+        resultsContainer.innerHTML = `
+            <div class="result-card">
+                <h4>${title}</h4>
+                <pre style="background: #f7fafc; padding: 15px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+            </div>
+        `;
+    }
 }
 
 // Utility functions
