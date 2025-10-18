@@ -16,8 +16,8 @@ def register(user: UserLogin,
              region: str,
     service: UserService = Depends(get_user_service)):
     try:
-        service.new_user(user.email, user.password, region)
-        return {"message": "User registered successfully"}
+        new_user = service.new_user(user.email, user.password, region)
+        return {"message": "User registered successfully", "user_id": str(new_user.id)}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -27,7 +27,7 @@ def login(user: UserLogin,
     auth_user = service.get_user(user.email, user.password)
     if not auth_user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    return {"message": "Login successful"}
+    return {"message": "Login successful", "user_id": str(auth_user.id)}
 
 @router.post("/confirm")
 def confirm_user(user: UserLogin,

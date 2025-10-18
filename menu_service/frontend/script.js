@@ -261,11 +261,13 @@ async function handleRegister(event) {
         
         if (response.ok) {
             const userData = await response.json();
+            console.log('Register response:', userData); // Debug log
             // Auto-login after registration
             currentUser = {
-                id: userData.user_id || userData.id || generateUUID(), // Get real UUID from API or generate one
+                id: userData.user_id, // Use the real UUID from the API
                 email: email
             };
+            console.log('Current user:', currentUser); // Debug log
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showNotification('Utente registrato e autenticato con successo!', 'success');
             document.getElementById('register-form').reset();
@@ -300,7 +302,7 @@ async function handleLogin(event) {
             const userData = await response.json();
             console.log('Login response:', userData); // Debug log
             currentUser = {
-                id: userData.user_id || userData.id || generateUUID(), // Get real UUID from API or generate one
+                id: userData.user_id, // Use the real UUID from the API
                 email: email
             };
             console.log('Current user:', currentUser); // Debug log
