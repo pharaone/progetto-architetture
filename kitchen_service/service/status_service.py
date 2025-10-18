@@ -39,27 +39,37 @@ class OrderStatusService:
         """
         print(f"SERVICE: Tentativo di aggiornare l'ordine {order_id} a '{new_status.value}'...")
         
-        # --- MODIFICA 1: Cattura l'oggetto restituito, non un booleano ---
-        # Usiamo un nome di variabile più descrittivo
+        # Prima controlliamo se l'ordine esiste per distinguere tra "ordine non trovato" e "stato già uguale"
+        current_status = await asyncio.to_thread(
+            self._status_repo.get_by_id, order_id
+        )
+        
+        if current_status is None:
+            print(f"SERVICE: Ordine {order_id} non trovato nel database.")
+            return False
+        
+        # Controlla se lo stato è già quello desiderato
+        if current_status.status == new_status:
+            print(f"SERVICE: Lo stato dell'ordine {order_id} è già '{new_status.value}'. Nessun aggiornamento necessario.")
+            return False
+        
+        # Se arriviamo qui, lo stato è diverso e l'ordine esiste, procediamo con l'aggiornamento
         updated_status_obj = await asyncio.to_thread(
             self._status_repo.update_status, order_id, new_status
         )
         
-        # --- MODIFICA 2: Controlla se l'oggetto non è None ---
         if updated_status_obj:
             # L'aggiornamento è avvenuto con successo!
-            print(f"SERVICE: Stato per l'ordine {order_id} aggiornato. Notifica in corso...")
+            print(f"SERVICE: Stato per l'ordine {order_id} aggiornato da '{current_status.status.value}' a '{new_status.value}'. Notifica in corso...")
             
-            # --- MODIFICA 3: Usa l'oggetto COMPLETO restituito dal repository ---
+            # Usa l'oggetto COMPLETO restituito dal repository
             await self._producer.publish_status_update(updated_status_obj)
             
             return True # L'operazione complessiva è riuscita
         else:
-            # L'aggiornamento non è avvenuto (o non era necessario, o l'ordine non esiste).
-            # Il repository ha già gestito la logica.
-            print(f"SERVICE: Nessun aggiornamento necessario per l'ordine {order_id}.")
-            
-            return False # L'operazione di "update" non è avvenuta
+            # Questo non dovrebbe mai accadere se l'ordine esiste e lo stato è diverso
+            print(f"SERVICE: Errore inaspettato durante l'aggiornamento dell'ordine {order_id}.")
+            return False
     
     async def save(self, order_status: OrderStatus) -> None:
         """Salva lo stato di un ordine in modo non bloccante."""
