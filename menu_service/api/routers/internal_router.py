@@ -2,9 +2,9 @@ import uuid
 
 from fastapi import APIRouter, Form, Depends
 
-from menu_service.config.dependecies_services import get_menu_service, get_order_service
-from menu_service.service.menu_service import MenuService
-from menu_service.service.order_service import OrderService
+from config.dependecies_services import get_menu_service, get_order_service
+from service.menu_service import MenuService
+from service.order_service import OrderService
 
 router = APIRouter(prefix="/internal_router", tags=["internal_router"])
 

@@ -1,10 +1,10 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from menu_service.config.dependecies_configuration import get_db
-from menu_service.repository.dish_repository import DishRepository
-from menu_service.repository.order_repository import OrderRepository
-from menu_service.repository.user_repository import UserRepository
+from config.dependecies_configuration import get_db
+from repository.dish_repository import DishRepository
+from repository.order_repository import OrderRepository
+from repository.user_repository import UserRepository
 
 
 def get_dish_repository(db: Session = Depends(get_db)):

@@ -1,8 +1,8 @@
 import uuid
 from sqlalchemy.orm import Session
 
-from menu_service.model.dish import Dish
-from menu_service.repository.dish_repository import DishRepository
+from model.dish import Dish
+from repository.dish_repository import DishRepository
 
 
 class MenuService:

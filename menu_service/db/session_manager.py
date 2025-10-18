@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from menu_service.config.settings import Settings
+from config.settings import Settings
 
 
 class SessionManager:

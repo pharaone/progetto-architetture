@@ -3,8 +3,8 @@ import uuid
 from sqlalchemy import Column, UUID, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from menu_service.db.base import Base
-from menu_service.model.enum.order_status import OrderStatus
+from db.base import Base
+from model.enum.order_status import OrderStatus
 
 
 class Order(Base):

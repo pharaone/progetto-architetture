@@ -2,7 +2,7 @@ import uuid
 
 import requests
 
-from menu_service.config import settings
+from config import settings
 
 BASE_URL = settings.Settings.ROUTING_SERVICE_URL
 

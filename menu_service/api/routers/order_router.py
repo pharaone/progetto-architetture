@@ -2,8 +2,8 @@ import uuid
 
 from fastapi import APIRouter, Depends
 
-from menu_service.config.dependecies_services import get_order_service
-from menu_service.service.order_service import OrderService
+from config.dependecies_services import get_order_service
+from service.order_service import OrderService
 
 router = APIRouter(prefix="/orders", tags=["menu"])
 

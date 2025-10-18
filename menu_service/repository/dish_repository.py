@@ -4,7 +4,7 @@ from typing import List, Optional
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import Session
 
-from menu_service.model.dish import Dish
+from model.dish import Dish
 
 
 class DishRepository:

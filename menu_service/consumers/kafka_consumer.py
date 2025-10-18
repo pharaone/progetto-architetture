@@ -5,10 +5,10 @@ from aiokafka.errors import KafkaConnectionError
 from fastapi import Depends
 from pydantic import ValidationError
 
-from menu_service.config.dependecies_configuration import get_settings
-from menu_service.config.settings import Settings
-from menu_service.consumers.message.order_status_message import OrderStatusMessage
-from menu_service.service.order_service import OrderService
+from config.dependecies_configuration import get_settings
+from config.settings import Settings
+from consumers.message.order_status_message import OrderStatusMessage
+from service.order_service import OrderService
 
 logger = logging.getLogger(__name__)
 

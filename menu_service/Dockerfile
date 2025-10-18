@@ -11,10 +11,12 @@ RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 # ================= Copia codice =================
-COPY . .
+COPY . /app
 
 # ================= Porta =================
 EXPOSE 9999
 
+ENV PYTHONPATH=/app
+
 # ================= Comando di avvio =================
-CMD ["uvicorn", "menu_service.main:app", "--host", "0.0.0.0", "--port", "9999", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9999", "--reload"]

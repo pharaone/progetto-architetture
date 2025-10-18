@@ -1,9 +1,9 @@
 import uuid
 
-from menu_service.consumers.message.order_status_message import OrderStatusMessage
-from menu_service.model.order import Order
-from menu_service.producers.kafka_producer import EventProducer
-from menu_service.repository.order_repository import OrderRepository
+from consumers.message.order_status_message import OrderStatusMessage
+from model.order import Order
+from producers.kafka_producer import EventProducer
+from repository.order_repository import OrderRepository
 
 
 class OrderService:

@@ -4,10 +4,10 @@ import uvicorn
 from fastapi import FastAPI
 import asyncio
 
-from menu_service.api.routers import menu_router, order_router, user_router
-from menu_service.config.dependecies_services import get_order_service
-from menu_service.consumers.kafka_consumer import EventConsumer
-from menu_service.service.order_service import OrderService
+from api.routers import menu_router, order_router, user_router
+from config.dependecies_services import get_order_service
+from consumers.kafka_consumer import EventConsumer
+from service.order_service import OrderService
 
 consumer: EventConsumer | None = None
 

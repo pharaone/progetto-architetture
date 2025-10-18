@@ -1,8 +1,8 @@
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from menu_service.config.settings import Settings
-from menu_service.db.session_manager import SessionManager
+from config.settings import Settings
+from db.session_manager import SessionManager
 
 
 def get_settings():

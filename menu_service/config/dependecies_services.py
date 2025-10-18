@@ -1,12 +1,12 @@
 from fastapi import Depends
 
-from menu_service.repository.order_repository import OrderRepository
-from menu_service.repository.user_repository import UserRepository
-from menu_service.service.menu_service import MenuService
-from menu_service.config.dependecies_repository import get_dish_repository, get_order_repository, get_user_repository
-from menu_service.repository.dish_repository import DishRepository
-from menu_service.service.order_service import OrderService
-from menu_service.service.user_service import UserService
+from repository.order_repository import OrderRepository
+from repository.user_repository import UserRepository
+from service.menu_service import MenuService
+from config.dependecies_repository import get_dish_repository, get_order_repository, get_user_repository
+from repository.dish_repository import DishRepository
+from service.order_service import OrderService
+from service.user_service import UserService
 
 
 def get_menu_service(

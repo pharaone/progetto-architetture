@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlalchemy import select, update, delete
 from sqlalchemy.orm import Session
 
-from menu_service.model.order import Order
+from model.order import Order
 
 
 class OrderRepository:

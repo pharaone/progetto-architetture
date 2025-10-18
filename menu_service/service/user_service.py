@@ -1,8 +1,8 @@
 import hashlib
 from sqlalchemy.orm import Session
 
-from menu_service.model.user import User
-from menu_service.repository.user_repository import UserRepository
+from model.user import User
+from repository.user_repository import UserRepository
 
 
 class UserService:
