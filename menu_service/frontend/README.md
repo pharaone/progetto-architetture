@@ -31,7 +31,7 @@ cd progetto-architetture/menu_service
 python main.py
 ```
 
-Il servizio sarà disponibile su `http://localhost:8000`
+Il servizio sarà disponibile su `http://localhost:9999`
 
 ### 2. Apri il Frontend
 
@@ -65,7 +65,7 @@ Apri il file `index.html` nel tuo browser preferito. Puoi:
 Se il Menu Service è in esecuzione su una porta diversa, modifica la variabile `API_BASE_URL` in `script.js`:
 
 ```javascript
-const API_BASE_URL = 'http://localhost:8000'; // Cambia porta se necessario
+const API_BASE_URL = 'http://localhost:9999'; // Cambia porta se necessario
 ```
 
 ### CORS
@@ -108,7 +108,7 @@ Controlla i log del Menu Service per eventuali errori lato server.
 
 ### Errore di Connessione
 - Verifica che il Menu Service sia in esecuzione
-- Controlla che la porta 8000 sia libera
+- Controlla che la porta 9999 sia libera
 - Verifica l'URL in `script.js`
 
 ### CORS Errors

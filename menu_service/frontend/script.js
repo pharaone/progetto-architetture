@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://localhost:9999';
 
 // Global state
 let currentUser = null;
@@ -10,13 +10,70 @@ const navButtons = document.querySelectorAll('.nav-btn');
 const menuGrid = document.getElementById('menu-grid');
 const dishModal = document.getElementById('dish-modal');
 const notification = document.getElementById('notification');
+const mainNav = document.getElementById('main-nav');
+const userInfo = document.getElementById('user-info');
+const userEmail = document.getElementById('user-email');
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', function() {
+    initializeAuth();
     initializeNavigation();
     initializeForms();
-    loadMenu();
+    checkAuthStatus();
 });
+
+// Authentication
+function initializeAuth() {
+    // Auth tabs
+    document.querySelectorAll('.auth-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+            const targetTab = this.getAttribute('data-tab');
+            switchAuthTab(targetTab);
+            
+            // Update active tab
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+}
+
+function switchAuthTab(tabName) {
+    document.querySelectorAll('.auth-tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+
+function checkAuthStatus() {
+    const savedUser = localStorage.getItem('currentUser');
+    if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        showAuthenticatedUI();
+    } else {
+        showAuthUI();
+    }
+}
+
+function showAuthUI() {
+    document.getElementById('auth-section').classList.add('active');
+    mainNav.style.display = 'none';
+    userInfo.style.display = 'none';
+}
+
+function showAuthenticatedUI() {
+    document.getElementById('auth-section').classList.remove('active');
+    mainNav.style.display = 'flex';
+    userInfo.style.display = 'block';
+    userEmail.textContent = currentUser.email;
+    loadMenu();
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('currentUser');
+    showAuthUI();
+    showNotification('Logout effettuato', 'info');
+}
 
 // Navigation
 function initializeNavigation() {
@@ -41,20 +98,21 @@ function showSection(sectionName) {
 
 // Forms initialization
 function initializeForms() {
+    // Auth forms
+    document.getElementById('register-form').addEventListener('submit', handleRegister);
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('confirm-form').addEventListener('submit', handleConfirm);
+    
     // Menu forms
     document.getElementById('add-dish-btn').addEventListener('click', showDishModal);
     document.getElementById('dish-form').addEventListener('submit', handleAddDish);
     document.querySelector('.close').addEventListener('click', hideDishModal);
     
-    // User forms
-    document.getElementById('register-form').addEventListener('submit', handleRegister);
-    document.getElementById('login-form').addEventListener('submit', handleLogin);
-    document.getElementById('confirm-form').addEventListener('submit', handleConfirm);
-    
     // Order forms
-    document.getElementById('new-order-form').addEventListener('submit', handleNewOrder);
-    document.getElementById('order-status-form').addEventListener('submit', handleOrderStatus);
-    document.getElementById('my-orders-form').addEventListener('submit', handleMyOrders);
+    document.getElementById('load-orders-btn').addEventListener('click', handleMyOrders);
+    
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', logout);
     
     // Close modal when clicking outside
     window.addEventListener('click', function(event) {
@@ -102,9 +160,38 @@ function createDishCard(dish) {
         <div class="dish-name">${dish.name}</div>
         <div class="dish-price">€${dish.price.toFixed(2)}</div>
         <div class="dish-description">${dish.description}</div>
+        <div style="margin-top: 15px;">
+            <button class="btn btn-primary" onclick="orderDish('${dish.id}')" style="width: 100%;">
+                Ordina Ora
+            </button>
+        </div>
         <div style="margin-top: 10px; font-size: 0.9rem; color: #a0aec0;">ID: ${dish.id}</div>
     `;
     return card;
+}
+
+async function orderDish(dishId) {
+    if (!currentUser) {
+        showNotification('Devi essere autenticato per ordinare', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/orders/new_order?dish_id=${encodeURIComponent(dishId)}&user_id=${encodeURIComponent(currentUser.id)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            const order = await response.json();
+            showNotification(`Ordine creato con successo! ID: ${order.id}`, 'success');
+        } else {
+            const error = await response.json();
+            showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error creating order:', error);
+        showNotification('Errore di connessione', 'error');
+    }
 }
 
 function showDishModal() {
@@ -190,8 +277,15 @@ async function handleLogin(event) {
         });
         
         if (response.ok) {
+            // Simulate getting user data (in real app, this would come from login response)
+            currentUser = {
+                id: 'user-' + Date.now(), // This should come from the API
+                email: email
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showNotification('Login effettuato con successo!', 'success');
             document.getElementById('login-form').reset();
+            showAuthenticatedUI();
         } else {
             const error = await response.json();
             showNotification(`Errore: ${error.detail || 'Credenziali non valide'}`, 'error');
@@ -230,63 +324,18 @@ async function handleConfirm(event) {
     }
 }
 
-// Order functions
-async function handleNewOrder(event) {
-    event.preventDefault();
-    
-    const dishId = document.getElementById('order-dish-id').value;
-    const userId = document.getElementById('order-user-id').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/orders/new_order?dish_id=${encodeURIComponent(dishId)}&user_id=${encodeURIComponent(userId)}`, {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            const order = await response.json();
-            showNotification(`Ordine creato con successo! ID: ${order.id}`, 'success');
-            document.getElementById('new-order-form').reset();
-        } else {
-            const error = await response.json();
-            showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error creating order:', error);
-        showNotification('Errore di connessione', 'error');
-    }
-}
-
-async function handleOrderStatus(event) {
-    event.preventDefault();
-    
-    const orderId = document.getElementById('status-order-id').value;
-    const userId = document.getElementById('status-user-id').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?order_id=${encodeURIComponent(orderId)}&user_id=${encodeURIComponent(userId)}`, {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            const status = await response.json();
-            displayOrderResult('Stato Ordine', status);
-        } else {
-            const error = await response.json();
-            showNotification(`Errore: ${error.detail || 'Ordine non trovato'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error getting order status:', error);
-        showNotification('Errore di connessione', 'error');
-    }
-}
+// Order functions (simplified - orders are now created directly from menu)
 
 async function handleMyOrders(event) {
-    event.preventDefault();
+    if (event) event.preventDefault();
     
-    const userId = document.getElementById('my-orders-user-id').value;
+    if (!currentUser) {
+        showNotification('Devi essere autenticato per vedere i tuoi ordini', 'error');
+        return;
+    }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?user_id=${encodeURIComponent(userId)}`, {
+        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?user_id=${encodeURIComponent(currentUser.id)}`, {
             method: 'POST'
         });
         
