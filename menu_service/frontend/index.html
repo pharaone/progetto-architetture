@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menu Service - Frontend</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍽️ Menu Service</h1>
+            <nav>
+                <button class="nav-btn active" data-section="menu">Menu</button>
+                <button class="nav-btn" data-section="users">Utenti</button>
+                <button class="nav-btn" data-section="orders">Ordini</button>
+            </nav>
+        </header>
+
+        <main>
+            <!-- Menu Section -->
+            <section id="menu-section" class="section active">
+                <div class="section-header">
+                    <h2>Gestione Menu</h2>
+                    <button id="add-dish-btn" class="btn btn-primary">Aggiungi Piatto</button>
+                </div>
+                
+                <div class="menu-grid" id="menu-grid">
+                    <!-- Menu items will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="users-section" class="section">
+                <div class="section-header">
+                    <h2>Gestione Utenti</h2>
+                </div>
+                
+                <div class="user-forms">
+                    <div class="form-card">
+                        <h3>Registrazione</h3>
+                        <form id="register-form">
+                            <input type="email" id="register-email" placeholder="Email" required>
+                            <input type="password" id="register-password" placeholder="Password" required>
+                            <input type="text" id="register-region" placeholder="Regione" required>
+                            <button type="submit" class="btn btn-primary">Registra</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>Login</h3>
+                        <form id="login-form">
+                            <input type="email" id="login-email" placeholder="Email" required>
+                            <input type="password" id="login-password" placeholder="Password" required>
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>Conferma Utente</h3>
+                        <form id="confirm-form">
+                            <input type="email" id="confirm-email" placeholder="Email" required>
+                            <input type="password" id="confirm-password" placeholder="Password" required>
+                            <button type="submit" class="btn btn-primary">Conferma</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Orders Section -->
+            <section id="orders-section" class="section">
+                <div class="section-header">
+                    <h2>Gestione Ordini</h2>
+                </div>
+                
+                <div class="order-forms">
+                    <div class="form-card">
+                        <h3>Nuovo Ordine</h3>
+                        <form id="new-order-form">
+                            <input type="text" id="order-dish-id" placeholder="ID Piatto (UUID)" required>
+                            <input type="text" id="order-user-id" placeholder="ID Utente (UUID)" required>
+                            <button type="submit" class="btn btn-primary">Crea Ordine</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>Stato Ordine</h3>
+                        <form id="order-status-form">
+                            <input type="text" id="status-order-id" placeholder="ID Ordine (UUID)" required>
+                            <input type="text" id="status-user-id" placeholder="ID Utente (UUID)" required>
+                            <button type="submit" class="btn btn-primary">Cerca Stato</button>
+                        </form>
+                    </div>
+
+                    <div class="form-card">
+                        <h3>I Miei Ordini</h3>
+                        <form id="my-orders-form">
+                            <input type="text" id="my-orders-user-id" placeholder="ID Utente (UUID)" required>
+                            <button type="submit" class="btn btn-primary">Carica Ordini</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="orders-results" class="results-container">
+                    <!-- Order results will be displayed here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal for adding new dish -->
+        <div id="dish-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>Aggiungi Nuovo Piatto</h2>
+                <form id="dish-form">
+                    <input type="text" id="dish-name" placeholder="Nome piatto" required>
+                    <input type="number" id="dish-price" placeholder="Prezzo" step="0.01" required>
+                    <textarea id="dish-description" placeholder="Descrizione" required></textarea>
+                    <button type="submit" class="btn btn-primary">Aggiungi Piatto</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notification area -->
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
