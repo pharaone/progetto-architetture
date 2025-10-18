@@ -2,7 +2,9 @@ import enum
 
 
 class OrderStatus(enum.Enum):
-    SUBMITTED = "Submitted"
-    ASSIGNED = "Assigned"
-    COMPLETED = "Completed"
-    FAILED = "Failed"
+    PENDING = "pending"
+    RECEIVED = "received"
+    PREPARING = "preparing"
+    READY_FOR_PICKUP = "ready_for_pickup"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"

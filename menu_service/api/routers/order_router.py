@@ -23,7 +23,7 @@ async def get_order_status(
 ):
     return order_service.get_order_status(order_id, user_id)
 
-@router.post("/get_order_status")
+@router.post("/get_my_orders")
 async def get_my_orders(
     user_id: uuid.UUID,
     order_service: OrderService = Depends(get_order_service)

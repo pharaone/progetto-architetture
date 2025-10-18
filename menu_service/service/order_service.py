@@ -1,6 +1,7 @@
 import uuid
 
 from consumers.message.order_status_message import OrderStatusMessage
+from model.enum.order_status import OrderStatus
 from model.order import Order
 from producers.kafka_producer import EventProducer
 from repository.order_repository import OrderRepository
@@ -17,7 +18,7 @@ class OrderService:
 
     def new_order(self, dish_id: uuid.UUID, user_id: uuid.UUID) -> Order:
         """Create a new order for a user."""
-        order = Order(dish_id=dish_id, user_id=user_id)
+        order = Order(dish_id=dish_id, user_id=user_id, status=OrderStatus.PENDING.value)
         order = self.order_repo.add(order)
         user = self.user_repo.get_by_id(user_id)
         start_order(user.region,order.id, user_id)

@@ -415,7 +415,7 @@ async function handleMyOrders(event) {
     }
     
     try {
-        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?user_id=${encodeURIComponent(currentUser.id)}`, {
+        const response = await fetch(`${API_BASE_URL}/orders/get_my_orders?user_id=${encodeURIComponent(currentUser.id)}`, {
             method: 'POST'
         });
         

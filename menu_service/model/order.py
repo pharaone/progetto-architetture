@@ -14,8 +14,7 @@ class Order(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, nullable=False)
 
     kitchen_id = Column(UUID(as_uuid=True))
-    status = Column(SQLEnum(OrderStatus, name="order_status"), nullable=False)
-
+    status = Column(String, nullable=False)
 
     dish_id = Column(UUID(as_uuid=True), ForeignKey("dishes.id"), nullable=False)
     dish = relationship("Dish", backref="orders")
