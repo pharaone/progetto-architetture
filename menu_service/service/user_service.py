@@ -13,14 +13,14 @@ class UserService:
         """Hash the password using SHA-256."""
         return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
-    def new_user(self, email: str, password: str) -> User:
+    def new_user(self, email: str, password: str, region:str) -> User:
         """Create a new user with hashed password."""
         existing_user = self.user_repo.get_all()
         if any(u.email == email for u in existing_user):
             raise ValueError("User with this email already exists")
 
         hashed_pw = self.hash_password(password)
-        user = User(email=email, password=hashed_pw)
+        user = User(email=email, password=hashed_pw, region=region)
         return self.user_repo.add(user)
 
     def get_user(self, email: str, password: str) -> User | None:

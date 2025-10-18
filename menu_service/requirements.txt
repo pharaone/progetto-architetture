@@ -7,3 +7,5 @@ requests
 python-multipart
 pydantic
 pydantic-settings
+PyMySQL
+psycopg2-binary==2.9.10

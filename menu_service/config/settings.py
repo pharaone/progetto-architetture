@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     KAFKA_BROKERS: str = "localhost:9092"
     ROUTING_SERVICE_URL: str = ""
     GROUP_ID: str = "default_group"
-    database_url: str = ""
+    database_url: str = "mysql://user:password@host/dbname"
 
     model_config = {"env_file": ".env", "env_prefix": ""}
 

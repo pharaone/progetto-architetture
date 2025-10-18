@@ -13,9 +13,10 @@ class UserLogin(BaseModel):
 
 @router.post("/register")
 def register(user: UserLogin,
+             region: str,
     service: UserService = Depends(get_user_service)):
     try:
-        service.new_user(user.email, user.password)
+        service.new_user(user.email, user.password, region)
         return {"message": "User registered successfully"}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
