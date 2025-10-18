@@ -1,6 +1,15 @@
 // Configuration
 const API_BASE_URL = 'http://localhost:9999';
 
+// Helper function to generate UUID v4
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
 // Global state
 let currentUser = null;
 
@@ -251,8 +260,16 @@ async function handleRegister(event) {
         });
         
         if (response.ok) {
-            showNotification('Utente registrato con successo!', 'success');
+            const userData = await response.json();
+            // Auto-login after registration
+            currentUser = {
+                id: userData.user_id || userData.id || generateUUID(), // Get real UUID from API or generate one
+                email: email
+            };
+            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+            showNotification('Utente registrato e autenticato con successo!', 'success');
             document.getElementById('register-form').reset();
+            showAuthenticatedUI();
         } else {
             const error = await response.json();
             showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
@@ -279,11 +296,14 @@ async function handleLogin(event) {
         });
         
         if (response.ok) {
-            // Simulate getting user data (in real app, this would come from login response)
+            // Get user data from login response
+            const userData = await response.json();
+            console.log('Login response:', userData); // Debug log
             currentUser = {
-                id: 'user-' + Date.now(), // This should come from the API
+                id: userData.user_id || userData.id || generateUUID(), // Get real UUID from API or generate one
                 email: email
             };
+            console.log('Current user:', currentUser); // Debug log
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
             showNotification('Login effettuato con successo!', 'success');
             document.getElementById('login-form').reset();
