@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # Nomi dei topic su cui il servizio CUCINA pubblica i messaggi
 ACCEPTANCE_RESPONSE_TOPIC = "accettazione"  
-STATUS_UPDATE_TOPIC = "status_updates"           
+STATUS_UPDATE_TOPIC = "status"           
 
 class EventProducer:
     """

@@ -17,9 +17,9 @@ from producers.producers import EventProducer
 # Nomi dei topic Kafka
 AVAILABILITY_REQUEST_TOPIC = "disponibilita"
 ORDER_ASSIGNMENT_TOPIC = "conferma_ordine"
-STATUS_TOPIC = "status_updates"
+STATUS_TOPIC = "status"
 # CONSIGLIO: Aggiungi un topic separato per le risposte per evitare loop
-STATUS_RESPONSE_TOPIC = "status_responses"
+#STATUS_RESPONSE_TOPIC = "status_responses"
 
 
 class EventConsumer:
