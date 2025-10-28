@@ -6,7 +6,7 @@ class MenuItem(BaseModel):
     """
     Rappresenta un singolo piatto (item) nel menù.
     """
-    dish_id: uuid.UUID = Field(default_factory=uuid.uuid4)
+    dish_id: uuid.UUID 
     name: str
     price: float = Field(gt=0)
     available_quantity: int

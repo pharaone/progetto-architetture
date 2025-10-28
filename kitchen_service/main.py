@@ -73,27 +73,28 @@ async def lifespan(app: FastAPI):
         app.state.event_consumer.listen()
     )
     logger.info("Consumer Kafka task avviato con successo.")
-
+# --- INIZIO BLOCCO COMMENTATO ---
     # Eseguiamo i test di invio dopo l'avvio
-    logger.info("Invio messaggi di startup a Kafka...")
-    await app.state.event_producer.publish_acceptance_response(
-        kitchen_id=settings.KITCHEN_ID,
-        order_id=str(uuid.uuid4()),
-        can_handle=True
-    )
+    # logger.info("Invio messaggi di startup a Kafka...")
+    # await app.state.event_producer.publish_acceptance_response(
+    #     kitchen_id=settings.KITCHEN_ID,
+    #     order_id=str(uuid.uuid4()),
+    #     can_handle=True
+    # )
 
-    # --- INIZIO BLOCCO CORRETTO ---
-    # 1. Creiamo un oggetto OrderStatus, come si aspetta la funzione
-    startup_status_update = OrderStatus(
-        order_id=uuid.uuid4(),
-        status="pending",
-        kitchen_id=settings.KITCHEN_ID
-    )
-    # 2. E passiamo l'oggetto singolo alla funzione
-    await app.state.event_producer.publish_status_update(startup_status_update)
-    # --- FINE BLOCCO CORRETTO ---
+    # # --- INIZIO BLOCCO CORRETTO ---
+    # # 1. Creiamo un oggetto OrderStatus, come si aspetta la funzione
+    # startup_status_update = OrderStatus(
+    #     order_id=uuid.uuid4(),
+    #     status="pending",
+    #     kitchen_id=settings.KITCHEN_ID
+    # )
+    # # 2. E passiamo l'oggetto singolo alla funzione
+    # await app.state.event_producer.publish_status_update(startup_status_update)
+    # # --- FINE BLOCCO CORRETTO ---
     
-    logger.info("Messaggi di startup inviati con successo.")
+    # logger.info("Messaggi di startup inviati con successo.")
+    # --- FINE BLOCCO COMMENTATO ---
 
     yield # L'applicazione è in esecuzione
 
