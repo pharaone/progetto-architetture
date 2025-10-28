@@ -163,7 +163,7 @@ docker run -d --name kitchen3 -e KITCHEN_ID=3 -p 8012:8000 kitchen_service
 
 ---
 
-## Test
+## Risultati dei test
 - **Da definire** 
 ---
 
