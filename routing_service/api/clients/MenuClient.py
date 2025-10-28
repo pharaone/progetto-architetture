@@ -23,7 +23,7 @@ class MenuClient:
         """
         Notifica al MENU che l'ordine `order_id` è stato assegnato alla `kitchen_id`.
         """
-        url = f"{self.base_url}/menu/order-assigned"
+        url = f"{self.base_url}/menu/order_assigned"
         payload = {
             "order_id": str(order_id),
             "kitchen_id": str(kitchen_id),
