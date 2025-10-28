@@ -46,6 +46,7 @@ async def verify_api_key(request: Request, x_api_key: str = Header(..., alias="X
 # --- NUOVO MODELLO PER LA CREAZIONE ---
 class MenuItemCreate(BaseModel):
     """Modello per la creazione di un nuovo piatto (dati richiesti dal client)."""
+    dish_id: uuid.UUID
     name: str
     price: float
     available_quantity: int
@@ -111,12 +112,10 @@ async def create_menu_item(
     dish_data: MenuItemCreate,
     menu_service: MenuService = Depends(get_menu_service)
 ):
-    # 2. Genera un nuovo UUID per il piatto
-    new_dish_id = uuid.uuid4()
 
     # 3. Crea l'oggetto MenuItem completo combinando l'ID e i dati ricevuti
     full_dish = MenuItem(
-        dish_id=new_dish_id,
+        dish_id=dish_data.dish_id,
         name=dish_data.name,
         price=dish_data.price,
         available_quantity=dish_data.available_quantity
