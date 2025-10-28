@@ -8,7 +8,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '..', '.env'))
 
 class Settings(BaseSettings):
     KAFKA_BROKERS: str = "localhost:9092"
-    ROUTING_SERVICE_URL: str = "localhost:7777"
+    ROUTING_SERVICE_URL: str = "http://localhost:7777"
     GROUP_ID: str = "default_group"
     database_url: str = "mysql://user:password@host/dbname"
 
@@ -19,3 +19,6 @@ class Settings(BaseSettings):
         # Override KAFKA_BROKERS con KAFKA_BOOTSTRAP_SERVERS se presente
         if os.environ.get('KAFKA_BOOTSTRAP_SERVERS'):
             self.KAFKA_BROKERS = os.environ.get('KAFKA_BOOTSTRAP_SERVERS')
+        # Override ROUTING_SERVICE_URL se presente nelle variabili d'ambiente
+        if os.environ.get('ROUTING_SERVICE_URL'):
+            self.ROUTING_SERVICE_URL = os.environ.get('ROUTING_SERVICE_URL')
