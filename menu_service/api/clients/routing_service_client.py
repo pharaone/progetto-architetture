@@ -8,7 +8,7 @@ BASE_URL = get_settings().ROUTING_SERVICE_URL
 
 
 def start_order(user_region: str, order_id: uuid.UUID, dish_id: uuid.UUID):
-    url = f"{BASE_URL}/create-order"
+    url = f"{BASE_URL}/routing/create-order"
     payload = {
         "user_region": user_region,
         "order_id": str(order_id),
