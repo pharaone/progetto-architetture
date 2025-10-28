@@ -1,48 +1,30 @@
-services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.3.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    healthcheck:
-      test: ["CMD", "cub", "zk-ready", "zookeeper:2181", "60"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+x-common-env: &kitchen-common-env
+  HOST: 0.0.0.0
+  PORT: 8000 # Porta INTERNA del container
+  API_PREFIX: /api
+  KAFKA_BROKERS_INTERNAL: kafka:29092
+  KAFKA_BROKERS_EXTERNAL: localhost:9092
+  ETCD_HOST: etcd
+  ETCD_PORT: 2379
+  REDIS_CLUSTER_NODES: redis-node-1:6379,redis-node-2:6379,redis-node-3:6379
+  INTERNAL_API_KEY: changeme123
+  WORKERS: 1
 
-  kafka:
-    image: confluentinc/cp-kafka:7.3.0
-    depends_on:
-      zookeeper:
-        condition: service_healthy
-    ports:
-      - "29092:29092"
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    healthcheck:
-      test: ["CMD", "cub", "kafka-ready", "-b", "kafka:29092", "1", "60"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
+services:
 
   etcd:
-    image: bitnami/etcd:3.5
+    image: bitnamilegacy/etcd:3.5
     environment:
       - ALLOW_NONE_AUTHENTICATION=yes
     volumes:
-      - etcd-data:/bitnami/etcd
+      - etcd-data:/bitnami/etcad
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
   redis-node-1:
     image: redis:7-alpine
@@ -57,6 +39,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - app-network
 
   redis-node-2:
     image: redis:7-alpine
@@ -67,6 +51,8 @@ services:
       --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes 
       --cluster-announce-ip redis-node-2 --cluster-announce-port 6379 --cluster-announce-bus-port 16379"
     healthcheck: *redis-healthcheck
+    networks:
+      - app-network
 
   redis-node-3:
     image: redis:7-alpine
@@ -77,14 +63,13 @@ services:
       --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes 
       --cluster-announce-ip redis-node-3 --cluster-announce-port 6379 --cluster-announce-bus-port 16379"
     healthcheck: *redis-healthcheck
+    networks:
+      - app-network
 
   kitchen-service-1: &kitchen-service-base
     build: .
     restart: always
     depends_on:
-      # --- DIPENDENZA CRUCIALE REINSERITA ---
-      kafka:
-        condition: service_healthy
       etcd:
         condition: service_healthy
       redis-node-1:
@@ -93,29 +78,38 @@ services:
         condition: service_healthy
       redis-node-3:
         condition: service_healthy
-    env_file:
-      - .env
+    # --- env_file RIMOSSO ---
     ports:
+      # Mappa la porta 8001 dell'host alla porta 8000 (definita in PORT) del container
       - "8001:8000"
     environment:
-      - KITCHEN_ID=11111111-1111-1111-1111-111111111111
-      - REDIS_CLUSTER_NODES=redis-node-1:6379,redis-node-2:6379,redis-node-3:6379
+      <<: *kitchen-common-env # <-- Applica le variabili comuni
+      # --- Variabile specifica per questo servizio ---
+      KITCHEN_ID: 11111111-1111-1111-1111-111111111111
+    networks:
+      - app-network
 
   kitchen-service-2:
-    <<: *kitchen-service-base
+    <<: *kitchen-service-base # Eredita build, restart, depends_on
     ports:
-      - "8002:8000"
+      - "8002:8000" # Override della porta
     environment:
-      - KITCHEN_ID=22222222-2222-2222-2222-222222222222
-      - REDIS_CLUSTER_NODES=redis-node-1:6379,redis-node-2:6379,redis-node-3:6379
+      <<: *kitchen-common-env # <-- Applica le variabili comuni
+      # --- Variabile specifica per questo servizio ---
+      KITCHEN_ID: 22222222-2222-2222-2222-222222222222
+    networks:
+      - app-network
 
   kitchen-service-3:
-    <<: *kitchen-service-base
+    <<: *kitchen-service-base # Eredita build, restart, depends_on
     ports:
-      - "8003:8000"
+      - "8003:8000" # Override della porta
     environment:
-      - KITCHEN_ID=33333333-3333-3333-3333-333333333333
-      - REDIS_CLUSTER_NODES=redis-node-1:6379,redis-node-2:6379,redis-node-3:6379
+      <<: *kitchen-common-env # <-- Applica le variabili comuni
+      # --- Variabile specifica per questo servizio ---
+      KITCHEN_ID: 33333333-3333-3333-3333-333333333333
+    networks:
+      - app-network
 
 volumes:
   etcd-data:
@@ -123,3 +117,6 @@ volumes:
   redis-data-2:
   redis-data-3:
 
+networks:
+  app-network:
+    external: true
