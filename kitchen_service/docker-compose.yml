@@ -3,7 +3,7 @@ x-common-env: &kitchen-common-env
   PORT: 8000 # Porta INTERNA del container
   API_PREFIX: /api
   KAFKA_BROKERS_INTERNAL: kafka:29092
-  KAFKA_BROKERS_EXTERNAL: localhost:9092
+  KAFKA_BROKERS_EXTERNAL: localhost:29092
   ETCD_HOST: etcd
   ETCD_PORT: 2379
   REDIS_CLUSTER_NODES: redis-node-1:6379,redis-node-2:6379,redis-node-3:6379
