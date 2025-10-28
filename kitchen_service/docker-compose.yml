@@ -35,7 +35,7 @@ services:
       --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes 
       --cluster-announce-ip redis-node-1 --cluster-announce-port 6379 --cluster-announce-bus-port 16379"
     healthcheck: &redis-healthcheck
-      test: "redis-cli -p 6379 CLUSTER INFO | grep 'cluster_state:ok'"
+      test: ["CMD", "redis-cli", "-p", "6379", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -66,18 +66,35 @@ services:
     networks:
       - app-network
 
-  kitchen-service-1: &kitchen-service-base
-    build: .
-    restart: always
+  redis-cluster-init:
+    image: redis:7-alpine
     depends_on:
-      etcd:
-        condition: service_healthy
       redis-node-1:
         condition: service_healthy
       redis-node-2:
         condition: service_healthy
       redis-node-3:
         condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for Redis nodes to be ready...' &&
+        sleep 5 &&
+        echo 'Creating Redis cluster...' &&
+        redis-cli --cluster create redis-node-1:6379 redis-node-2:6379 redis-node-3:6379 --cluster-replicas 0 --cluster-yes &&
+        echo 'Redis cluster created successfully!' &&
+        redis-cli --cluster info redis-node-1:6379
+      "
+    networks:
+      - app-network
+
+  kitchen-service-1: &kitchen-service-base
+    build: .
+    restart: always
+    depends_on:
+      etcd:
+        condition: service_healthy
+      redis-cluster-init:
+        condition: service_completed_successfully
     # --- env_file RIMOSSO ---
     ports:
       # Mappa la porta 8001 dell'host alla porta 8000 (definita in PORT) del container
