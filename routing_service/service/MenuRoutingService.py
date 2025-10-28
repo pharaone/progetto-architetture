@@ -176,10 +176,21 @@ class MenuRoutingService:
             )
 
             if best is None:
+                o = state.order  # <--- aggiungi questa riga: ti serve order_id per lo status
+
+                # marca la decisione
                 state.decided = True
                 state.decided_kitchen_id = None
+
+                # aggiorna cache status e pubblica su Kafka -> orderstatus
+                self.save_status(o["order_id"], "CANCELLED")
+                await self._producer.publish_order_status({
+                    "order_id": o["order_id"],
+                    "status": "CANCELLED",
+                })
+                print(f"[DECIDE] oid={o['order_id']} no candidates → CANCELLED (published to orderstatus)")
+
                 self._tasks.pop(oid, None)
-                print(f"[DECIDE] oid={state.order['order_id']} no candidates → none")
                 return
 
             o = state.order
