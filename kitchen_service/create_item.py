@@ -2,6 +2,7 @@ import requests
 import uuid
 
 data = {
+    "dish_id": str(uuid.uuid4()),
     "name": "Margherita",
     "price": 10.5,
     "available_quantity": 20
