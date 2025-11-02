@@ -17,3 +17,4 @@ class OrderStatus(BaseModel):
     """
     order_id: uuid.UUID # Per collegarlo al modello Order
     status: StatusEnum = StatusEnum.PENDING
+    kitchen_id: uuid.UUID  # Identifica quale cucina gestisce questo ordine

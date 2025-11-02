@@ -1,4 +1,5 @@
 import uuid
+import logging
 
 from consumers.message.order_status_message import OrderStatusMessage
 from model.enum.order_status import OrderStatus
@@ -8,6 +9,8 @@ from repository.order_repository import OrderRepository
 
 from api.clients.routing_service_client import start_order
 from repository.user_repository import UserRepository
+
+logger = logging.getLogger(__name__)
 
 
 class OrderService:
@@ -37,11 +40,17 @@ class OrderService:
         return [order for order in all_orders if order.user_id == user_id]
 
     def assign_order(self, order_id: uuid.UUID, kitchen_id: uuid.UUID) -> Order:
-        order = self.order_repo.get_by_id(order_id)
-        order.kitchen_id = kitchen_id
-        return self.order_repo.update(order)
+        return self.order_repo.update(order_id, kitchen_id=kitchen_id)
 
     def update_order_status(self, order_status_message: OrderStatusMessage):
+        logger.info(f"📝 [MENU SERVICE] Tentativo di aggiornamento ordine {order_status_message.order_id} a stato {order_status_message.status}")
         order = self.order_repo.get_by_id(order_status_message.order_id)
-        order.status = order_status_message.status
-        return self.order_repo.update(order)
+        if not order:
+            logger.warning(f"⚠️ Ordine {order_status_message.order_id} non trovato nel database")
+            return None
+        
+        old_status = order.status
+        new_status_value = order_status_message.status.value  # Converti enum a stringa
+        updated_order = self.order_repo.update(order_status_message.order_id, status=new_status_value)
+        logger.info(f"✅ [MENU SERVICE] Ordine {order_status_message.order_id} aggiornato: {old_status} → {new_status_value}")
+        return updated_order

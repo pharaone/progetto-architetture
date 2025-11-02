@@ -25,14 +25,14 @@ class EventConsumers:
             bootstrap_servers=bootstrap_servers,
             value_deserializer=lambda v: json.loads(v.decode("utf-8")),
             group_id="routing-accettazione",
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
         )
         self.status_consumer = AIOKafkaConsumer(
             "status",
             bootstrap_servers=bootstrap_servers,
             value_deserializer=lambda v: json.loads(v.decode("utf-8")),
             group_id="routing-status",
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",
         )
         self._started = False
 

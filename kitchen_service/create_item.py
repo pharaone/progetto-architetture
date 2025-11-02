@@ -3,7 +3,7 @@ import uuid
 
 data = {
     "dish_id": str(uuid.uuid4()),
-    "name": "Margherita",
+    "name": "pizza",
     "price": 10.5,
     "available_quantity": 20
 }

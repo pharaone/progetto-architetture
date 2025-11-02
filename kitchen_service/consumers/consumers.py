@@ -81,6 +81,12 @@ class EventConsumer:
                         elif msg.topic == ORDER_ASSIGNMENT_TOPIC:
                             order_assignment = OrderAssignment(**msg.value)
                             print(f"➡️ Assegnazione ordine ricevuta: {order_assignment}")
+                            
+                            # Verifica che il messaggio sia destinato a questa cucina
+                            my_kitchen = await self._kitchen_service.get_by_id()
+                            if my_kitchen and order_assignment.kitchen_id != my_kitchen.kitchen_id:
+                                print(f"⏭️ Assegnazione ordine {order_assignment.order_id} NON destinata a questa cucina (destinazione: {order_assignment.kitchen_id}, mia: {my_kitchen.kitchen_id}). Ignoro.")
+                                continue
 
                             print(f"🔧 Creazione dello stato iniziale 'pending' per l'ordine {order_assignment.order_id}...")
                             initial_status = OrderStatus(
@@ -104,6 +110,14 @@ class EventConsumer:
                                 # Il messaggio contiene sia 'order_id' che 'status'
                                 print(f"➡️ Richiesta di aggiornamento stato per ordine {order_id}...")
                                 
+                                # Verifica prima se questo ordine è gestito da questa cucina
+                                order_status_obj = await self._status_service.get_by_id(order_id)
+                                if order_status_obj:
+                                    my_kitchen = await self._kitchen_service.get_by_id()
+                                    if my_kitchen and order_status_obj.kitchen_id != my_kitchen.kitchen_id:
+                                        print(f"⏭️ Aggiornamento stato per ordine {order_id} NON gestito da questa cucina (gestito da: {order_status_obj.kitchen_id}, mia: {my_kitchen.kitchen_id}). Ignoro.")
+                                        continue
+                                
                                 # Convalida e converte la stringa dello stato in un Enum
                                 new_status_enum = StatusEnum(msg.value["status"])
                                 
@@ -120,6 +134,12 @@ class EventConsumer:
                                 order_status_obj = await self._status_service.get_by_id(order_id)
                                 
                                 if order_status_obj:
+                                    # Verifica che questo ordine sia gestito da questa cucina
+                                    my_kitchen = await self._kitchen_service.get_by_id()
+                                    if my_kitchen and order_status_obj.kitchen_id != my_kitchen.kitchen_id:
+                                        print(f"⏭️ Query stato per ordine {order_id} NON gestito da questa cucina. Ignoro.")
+                                        continue
+                                    
                                     # Pubblica la risposta. Per evitare loop, la risposta dovrebbe
                                     # andare su un topic dedicato come "status_responses".
                                     # Per ora, riutilizziamo la funzione esistente, ma la soluzione
@@ -127,7 +147,7 @@ class EventConsumer:
                                     print(f"✅ Trovato stato: {order_status_obj.status.value}. Invio risposta...")
                                     await self._producer.publish_status_update(order_status_obj)
                                 else:
-                                    print(f"⚠️ Nessuno stato trovato per la query sull'ordine {order_id}.")
+                                    print(f"⏭️ Nessuno stato trovato per la query sull'ordine {order_id}. Probabilmente gestito da altra cucina.")
                         # --- FINE BLOCCO LOGICA CORRETTA ---
 
                     except (ValidationError, KeyError, ValueError) as e:

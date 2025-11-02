@@ -12,7 +12,7 @@ from service.order_service import OrderService
 
 logger = logging.getLogger(__name__)
 
-ORDER_STATUS_TOPIC = "order_status_topic"
+ORDER_STATUS_TOPIC = "orderstatus"  # Deve corrispondere a quello pubblicato dal routing service
 
 
 class EventConsumer:
@@ -26,7 +26,7 @@ class EventConsumer:
             bootstrap_servers=get_settings().KAFKA_BROKERS,
             group_id=get_settings().GROUP_ID,
             value_deserializer=lambda v: json.loads(v.decode("utf-8")),
-            auto_offset_reset="latest",
+            auto_offset_reset="earliest",  # Leggi dall'inizio per non perdere messaggi
             enable_auto_commit=False,  # commit manuale
         )
         self._started = False
@@ -55,11 +55,13 @@ class EventConsumer:
         logger.info("🎧 CONSUMER: In ascolto su topic...")
 
         async for msg in self._consumer:
-            logger.info(f"📬 Messaggio ricevuto su topic '{msg.topic}'")
+            logger.info(f"📬 Messaggio ricevuto su topic '{msg.topic}': {msg.value}")
             try:
                 if msg.topic == ORDER_STATUS_TOPIC:
                     request = OrderStatusMessage(**msg.value)
-                    self._order_service.update_order_status(request)
+                    logger.info(f"🔄 Aggiornamento stato ordine {request.order_id} a {request.status}")
+                    result = self._order_service.update_order_status(request)
+                    logger.info(f"✅ Stato ordine aggiornato con successo: {result}")
 
                 await self._consumer.commit()
 

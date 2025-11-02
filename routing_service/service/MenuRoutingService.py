@@ -170,9 +170,12 @@ class MenuRoutingService:
                 self._tasks.pop(oid, None)
                 return
 
+            candidates_list = list(state.candidates)
+            print(f"[DECIDE] oid={state.order['order_id']} evaluating {len(candidates_list)} candidates: {[str(c) for c in candidates_list]}")
+            
             best = self._choose_best(
                 user_nb=state.order["user_neighborhood"],
-                candidates=list(state.candidates),
+                candidates=candidates_list,
             )
 
             if best is None:
@@ -183,10 +186,10 @@ class MenuRoutingService:
                 state.decided_kitchen_id = None
 
                 # aggiorna cache status e pubblica su Kafka -> orderstatus
-                self.save_status(o["order_id"], "CANCELLED")
+                self.save_status(o["order_id"], "cancelled")
                 await self._producer.publish_order_status({
                     "order_id": o["order_id"],
-                    "status": "CANCELLED",
+                    "status": "cancelled",
                 })
                 print(f"[DECIDE] oid={o['order_id']} no candidates → CANCELLED (published to orderstatus)")
 
@@ -226,11 +229,15 @@ class MenuRoutingService:
         """Seleziona la kitchen più vicina al quartiere dell'utente."""
         best: Optional[uuid.UUID] = None
         best_d = float("inf")
+        print(f"[CHOOSE_BEST] user_neighborhood='{user_nb}' candidates={len(candidates)}")
         for kid in candidates:
             nb = self._kitchen_service.resolve_kitchen_neighborhood(kid)
             if not nb:
+                print(f"[CHOOSE_BEST] ⚠️ kitchen {kid} has no neighborhood registered")
                 continue
             d = self._kitchen_service.shortest_distance(user_nb, nb)
+            print(f"[CHOOSE_BEST] kitchen {kid} @ '{nb}' distance={d}")
             if d is not None and d < best_d:
                 best, best_d = kid, d
+        print(f"[CHOOSE_BEST] result: best={best} distance={best_d}")
         return best

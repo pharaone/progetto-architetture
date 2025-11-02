@@ -1,5 +1,6 @@
 import os
 import asyncio
+import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 from fastapi import FastAPI
@@ -18,6 +19,18 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 async def lifespan(app: FastAPI):
     producer = await get_event_producer()
     kitchen_service = get_kitchen_service()
+    
+    # Registra le cucine con le loro posizioni (quartieri)
+    print("🏪 Registrazione cucine nel routing service...")
+    kitchens_config = [
+        (uuid.UUID("11111111-1111-1111-1111-111111111111"), "Centro"),
+        (uuid.UUID("22222222-2222-2222-2222-222222222222"), "Stazione"),
+        (uuid.UUID("33333333-3333-3333-3333-333333333333"), "Porta Sud"),
+    ]
+    for kitchen_id, neighborhood in kitchens_config:
+        kitchen_service.set_kitchen_location(kitchen_id, neighborhood)
+        print(f"  ✅ Cucina {kitchen_id} registrata nel quartiere '{neighborhood}'")
+    
     menu_service = await get_menu_service(kitchen_service, producer)
 
     consumers = EventConsumers(

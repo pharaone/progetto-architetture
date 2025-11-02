@@ -30,6 +30,7 @@ class EventProducer:
         for attempt in range(retries):
             try:
                 await self._producer.start()
+                self._started = True
                 logger.info("✅ PRODUCER: Connesso a Kafka.")
                 return  # Esce dalla funzione se la connessione ha successo
             except KafkaConnectionError as e:
