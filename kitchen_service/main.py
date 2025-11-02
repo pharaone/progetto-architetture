@@ -3,6 +3,7 @@ import asyncio
 from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 import uuid
 from settings import settings
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
     logger.info("Startup: Inizializzazione delle dipendenze...")
 
     app.state.internal_api_key = settings.INTERNAL_API_KEY
+    app.state.kitchen_id = settings.KITCHEN_ID  # Aggiungi questo per gli endpoint API
 
     # --- 1. Creazione dei componenti base (Repository e Producer) ---
     app.state.kitchen_repo = KitchenAvailabilityRepository(kitchen_id=settings.KITCHEN_ID, host=settings.ETCD_HOST, port=settings.ETCD_PORT)
@@ -116,6 +118,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Kitchen Service API", version="1.0.0", lifespan=lifespan)
+
+# Aggiungi CORS middleware per permettere richieste dal frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In produzione, specifica gli origins esatti
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
 @app.get("/health", tags=["health"])

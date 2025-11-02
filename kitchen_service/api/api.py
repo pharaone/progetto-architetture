@@ -70,11 +70,10 @@ class MenuItemUpdateRequest(BaseModel):
 # --- Kitchen Endpoints ---
 @router.get("/kitchen", response_model=KitchenAvailability)
 async def get_kitchen_status(
-    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
     kitchen_service: KitchenService = Depends(get_kitchen_service)
 ):
-    # ... (codice invariato)
-    kitchen_state = await kitchen_service.get_by_id(kitchen_id)
+    """Recupera lo stato della cucina corrente."""
+    kitchen_state = await kitchen_service.get_by_id()
     if not kitchen_state:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stato cucina non trovato.")
     return kitchen_state
@@ -83,11 +82,10 @@ async def get_kitchen_status(
 @router.patch("/kitchen", dependencies=[Depends(verify_api_key)])
 async def update_kitchen_status(
     is_operational: bool,
-    kitchen_id: uuid.UUID = Depends(get_kitchen_id),
     kitchen_service: KitchenService = Depends(get_kitchen_service)
 ):
-    # ... (codice invariato)
-    success = await kitchen_service.set_operational_status(kitchen_id, is_operational)
+    """Aggiorna lo stato operativo della cucina."""
+    success = await kitchen_service.set_operational_status(is_operational)
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Impossibile aggiornare lo stato della cucina.")
     return {"message": "Stato cucina aggiornato con successo."}
@@ -179,3 +177,30 @@ async def delete_menu_item(
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato o impossibile da eliminare.")
     return
+
+# --- Order Status Endpoints ---
+@router.get("/orders")
+async def get_all_orders(
+    status_service: OrderStatusService = Depends(get_status_service),
+    kitchen_id: uuid.UUID = Depends(get_kitchen_id)
+):
+    """Restituisce tutti gli ordini assegnati a questa cucina."""
+    try:
+        orders = await status_service.get_all_orders_by_kitchen(kitchen_id)
+        print(f"API /orders: Restituiti {len(orders)} ordini per kitchen {kitchen_id}")
+        return orders
+    except Exception as e:
+        print(f"❌ Errore in /orders endpoint: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@router.patch("/orders/{order_id}/status", dependencies=[Depends(verify_api_key)])
+async def update_order_status(
+    order_id: uuid.UUID,
+    request: StatusUpdateRequest,
+    status_service: OrderStatusService = Depends(get_status_service)
+):
+    """Aggiorna lo stato di un ordine."""
+    success = await status_service.update_status(order_id, request.status)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ordine non trovato o stato già aggiornato.")
+    return {"message": "Stato ordine aggiornato con successo."}

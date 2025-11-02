@@ -67,3 +67,34 @@ class OrderStatusRepository:
             if success:
                 # Successo! Restituisci l'oggetto aggiornato.
                 return current_status
+    
+    def get_all_by_kitchen(self, kitchen_id: uuid.UUID) -> list:
+        """Recupera tutti gli ordini per una specifica cucina."""
+        print(f"🔍 Cercando ordini per kitchen_id: {kitchen_id}")
+        orders = []
+        try:
+            # Usa il prefix per ottenere tutti gli order_status
+            prefix_results = list(self.etcd.get_prefix("order_status/"))
+            print(f"📊 Trovati {len(prefix_results)} ordini totali in etcd")
+            
+            for value, metadata in prefix_results:
+                if value:
+                    try:
+                        order_status = OrderStatus.model_validate_json(value)
+                        print(f"   - Ordine {order_status.order_id}: kitchen_id={order_status.kitchen_id}, status={order_status.status}")
+                        if str(order_status.kitchen_id) == str(kitchen_id):
+                            # Usa mode='json' per serializzare correttamente gli enum come stringhe
+                            order_dict = order_status.model_dump(mode='json')
+                            orders.append(order_dict)
+                            print(f"   ✅ Aggiunto ordine {order_status.order_id}")
+                    except Exception as e:
+                        print(f"   ❌ Errore parsing ordine: {e}")
+                        continue
+            
+            print(f"✅ Totale ordini per kitchen {kitchen_id}: {len(orders)}")
+        except Exception as e:
+            print(f"❌ Errore get_all_by_kitchen: {e}")
+            # Ritorna lista vuota invece di crashare
+            return []
+        
+        return orders

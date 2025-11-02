@@ -78,3 +78,7 @@ class OrderStatusService:
         # <<< CORREZIONE 1: Usa _status_repo (con underscore)
         # <<< CORREZIONE 2: Usa await asyncio.to_thread per non bloccare l'app
         await asyncio.to_thread(self._status_repo.save, order_status)
+    
+    async def get_all_orders_by_kitchen(self, kitchen_id: uuid.UUID) -> list:
+        """Recupera tutti gli ordini assegnati a una specifica cucina."""
+        return await asyncio.to_thread(self._status_repo.get_all_by_kitchen, kitchen_id)

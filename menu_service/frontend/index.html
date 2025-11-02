@@ -68,30 +68,11 @@
             <!-- Orders Section -->
             <section id="orders-section" class="section">
                 <div class="section-header">
-                    <h2>Gestione Ordini</h2>
-                </div>
-                
-                <div class="order-forms">
-                    <div class="form-card">
-                        <h3>Nuovo Ordine</h3>
-                        <form id="new-order-form">
-                            <input type="text" id="order-dish-id" placeholder="ID Piatto (UUID)" required>
-                            <button type="submit" class="btn btn-primary">Crea Ordine</button>
-                        </form>
-                    </div>
-
-                    <div class="form-card">
-                        <h3>Stato Ordine</h3>
-                        <form id="order-status-form">
-                            <input type="text" id="status-order-id" placeholder="ID Ordine (UUID)" required>
-                            <button type="submit" class="btn btn-primary">Cerca Stato</button>
-                        </form>
-                    </div>
-
-                    <div class="form-card">
-                        <h3>I Miei Ordini</h3>
-                        <button id="load-orders-btn" class="btn btn-primary" style="width: 100%;">Carica I Miei Ordini</button>
-                    </div>
+                    <h2>I Miei Ordini</h2>
+                    <button id="load-orders-btn" class="btn btn-primary">
+                        <span style="margin-right: 8px;">🔄</span>
+                        Aggiorna Ordini
+                    </button>
                 </div>
 
                 <div id="orders-results" class="results-container">
@@ -121,14 +102,50 @@
 
         <!-- Modal for adding new dish -->
         <div id="dish-modal" class="modal">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2>Aggiungi Nuovo Piatto</h2>
-                <form id="dish-form">
-                    <input type="text" id="dish-name" placeholder="Nome piatto" required>
-                    <input type="number" id="dish-price" placeholder="Prezzo" step="0.01" required>
-                    <textarea id="dish-description" placeholder="Descrizione" required></textarea>
-                    <button type="submit" class="btn btn-primary">Aggiungi Piatto</button>
+            <div class="modal-content modern-modal">
+                <div class="modal-header">
+                    <h2>
+                        <span class="modal-icon">🍽️</span>
+                        Aggiungi Nuovo Piatto
+                    </h2>
+                    <span class="close">&times;</span>
+                </div>
+                
+                <form id="dish-form" class="modern-form">
+                    <div class="form-group">
+                        <label for="dish-name">
+                            <span class="label-icon">📝</span>
+                            Nome Piatto
+                        </label>
+                        <input type="text" id="dish-name" placeholder="Es: Spaghetti Carbonara" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dish-price">
+                            <span class="label-icon">💰</span>
+                            Prezzo
+                        </label>
+                        <div class="price-input-wrapper">
+                            <span class="currency-symbol">€</span>
+                            <input type="number" id="dish-price" placeholder="12.50" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dish-description">
+                            <span class="label-icon">📄</span>
+                            Descrizione
+                        </label>
+                        <textarea id="dish-description" placeholder="Descrivi il piatto, ingredienti principali..." rows="4" required></textarea>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideDishModal()">Annulla</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span style="margin-right: 8px;">✨</span>
+                            Aggiungi Piatto
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>

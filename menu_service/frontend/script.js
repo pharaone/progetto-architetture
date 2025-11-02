@@ -74,6 +74,11 @@ function showAuthenticatedUI() {
     mainNav.style.display = 'flex';
     userInfo.style.display = 'block';
     userEmail.textContent = currentUser.email;
+    
+    // Mostra la sezione menu di default
+    showSection('menu');
+    
+    // Carica il menu
     loadMenu();
 }
 
@@ -103,6 +108,20 @@ function showSection(sectionName) {
         section.classList.remove('active');
     });
     document.getElementById(`${sectionName}-section`).classList.add('active');
+    
+    // Aggiorna i bottoni di navigazione
+    navButtons.forEach(btn => {
+        if (btn.getAttribute('data-section') === sectionName) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    // Carica automaticamente gli ordini quando si apre la sezione orders
+    if (sectionName === 'orders' && currentUser) {
+        handleMyOrders();
+    }
 }
 
 // Forms initialization
@@ -117,9 +136,7 @@ function initializeForms() {
     document.getElementById('dish-form').addEventListener('submit', handleAddDish);
     document.querySelector('.close').addEventListener('click', hideDishModal);
     
-    // Order forms
-    document.getElementById('new-order-form').addEventListener('submit', handleNewOrder);
-    document.getElementById('order-status-form').addEventListener('submit', handleOrderStatus);
+    // Order button
     document.getElementById('load-orders-btn').addEventListener('click', handleMyOrders);
     
     // Logout
@@ -217,6 +234,11 @@ function hideDishModal() {
 async function handleAddDish(event) {
     event.preventDefault();
     
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span style="margin-right: 8px;">⏳</span>Aggiunta in corso...';
+    
     const formData = new FormData();
     formData.append('name', document.getElementById('dish-name').value);
     formData.append('price', document.getElementById('dish-price').value);
@@ -229,16 +251,21 @@ async function handleAddDish(event) {
         });
         
         if (response.ok) {
-            showNotification('Piatto aggiunto con successo!', 'success');
+            const dish = await response.json();
+            showNotification(`✨ ${dish.name || 'Piatto'} aggiunto con successo!`, 'success');
             hideDishModal();
-            loadMenu(); // Reload menu
+            await loadMenu(); // Reload menu
         } else {
             const error = await response.json();
             showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
         }
     } catch (error) {
         console.error('Error adding dish:', error);
         showNotification('Errore di connessione', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
     }
 }
 
@@ -349,63 +376,6 @@ async function handleConfirm(event) {
 }
 
 // Order functions
-async function handleNewOrder(event) {
-    event.preventDefault();
-    
-    if (!currentUser) {
-        showNotification('Devi essere autenticato per creare ordini', 'error');
-        return;
-    }
-    
-    const dishId = document.getElementById('order-dish-id').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/orders/new_order?dish_id=${encodeURIComponent(dishId)}&user_id=${encodeURIComponent(currentUser.id)}`, {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            const order = await response.json();
-            showNotification(`Ordine creato con successo! ID: ${order.id}`, 'success');
-            document.getElementById('new-order-form').reset();
-        } else {
-            const error = await response.json();
-            showNotification(`Errore: ${error.detail || 'Errore sconosciuto'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error creating order:', error);
-        showNotification('Errore di connessione', 'error');
-    }
-}
-
-async function handleOrderStatus(event) {
-    event.preventDefault();
-    
-    if (!currentUser) {
-        showNotification('Devi essere autenticato per controllare lo stato ordini', 'error');
-        return;
-    }
-    
-    const orderId = document.getElementById('status-order-id').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/orders/get_order_status?order_id=${encodeURIComponent(orderId)}&user_id=${encodeURIComponent(currentUser.id)}`, {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            const status = await response.json();
-            displayOrderResult('Stato Ordine', status);
-        } else {
-            const error = await response.json();
-            showNotification(`Errore: ${error.detail || 'Ordine non trovato'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Error getting order status:', error);
-        showNotification('Errore di connessione', 'error');
-    }
-}
-
 async function handleMyOrders(event) {
     if (event) event.preventDefault();
     
@@ -415,16 +385,20 @@ async function handleMyOrders(event) {
     }
     
     try {
+        const resultsContainer = document.getElementById('orders-results');
+        showLoading(resultsContainer);
+        
         const response = await fetch(`${API_BASE_URL}/orders/get_my_orders?user_id=${encodeURIComponent(currentUser.id)}`, {
             method: 'POST'
         });
         
         if (response.ok) {
             const orders = await response.json();
-            displayOrderResult('I Miei Ordini', orders);
+            await displayMyOrders(orders);
         } else {
             const error = await response.json();
             showNotification(`Errore: ${error.detail || 'Nessun ordine trovato'}`, 'error');
+            resultsContainer.innerHTML = '<p style="text-align: center; color: #718096;">Nessun ordine trovato</p>';
         }
     } catch (error) {
         console.error('Error getting my orders:', error);
@@ -432,6 +406,126 @@ async function handleMyOrders(event) {
     }
 }
 
+// Nuova funzione per mostrare gli ordini con i dettagli dei piatti
+async function displayMyOrders(orders) {
+    const resultsContainer = document.getElementById('orders-results');
+    
+    if (!Array.isArray(orders) || orders.length === 0) {
+        resultsContainer.innerHTML = '<p style="text-align: center; color: #718096; padding: 40px;">Non hai ancora effettuato ordini 🍽️</p>';
+        return;
+    }
+    
+    // Carica i dettagli di tutti i piatti
+    const menu = await loadMenuData();
+    const dishMap = new Map(menu.map(dish => [dish.id, dish]));
+    
+    let ordersHtml = '<div class="orders-container">';
+    
+    orders.forEach((order, index) => {
+        const dish = dishMap.get(order.dish_id);
+        const statusInfo = getStatusInfo(order.status);
+        
+        ordersHtml += `
+            <div class="modern-order-card">
+                <div class="order-header">
+                    <div class="order-number">
+                        <span class="order-icon">🍽️</span>
+                        <span class="order-title">Ordine #${index + 1}</span>
+                    </div>
+                    <span class="status-badge status-${statusInfo.class}">${statusInfo.icon} ${statusInfo.text}</span>
+                </div>
+                
+                <div class="order-body">
+                    ${dish ? `
+                        <div class="dish-info">
+                            <div class="dish-name-order">${dish.name}</div>
+                            <div class="dish-price-order">€${dish.price.toFixed(2)}</div>
+                        </div>
+                        <div class="dish-description-order">${dish.description}</div>
+                    ` : `
+                        <div class="dish-info">
+                            <div class="dish-name-order">Piatto non disponibile</div>
+                        </div>
+                    `}
+                </div>
+                
+                <div class="order-footer">
+                    <div class="order-details">
+                        <div class="order-detail-item">
+                            <span class="detail-label">ID Ordine:</span>
+                            <span class="detail-value">${formatOrderId(order.id)}</span>
+                        </div>
+                        ${order.created_at ? `
+                        <div class="order-detail-item">
+                            <span class="detail-label">Data:</span>
+                            <span class="detail-value">${formatDate(order.created_at)}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    ordersHtml += '</div>';
+    resultsContainer.innerHTML = ordersHtml;
+}
+
+// Funzione helper per caricare il menu
+async function loadMenuData() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/menu/get_menu`);
+        if (response.ok) {
+            return await response.json();
+        }
+    } catch (error) {
+        console.error('Error loading menu data:', error);
+    }
+    return [];
+}
+
+// Funzione helper per ottenere info sullo stato
+function getStatusInfo(status) {
+    const statusMap = {
+        'pending': { text: 'In Attesa', icon: '⏳', class: 'pending' },
+        'received': { text: 'Ricevuto', icon: '✅', class: 'received' },
+        'preparing': { text: 'In Preparazione', icon: '👨‍🍳', class: 'preparing' },
+        'ready_for_pickup': { text: 'Pronto', icon: '🎉', class: 'ready' },
+        'completed': { text: 'Completato', icon: '✨', class: 'completed' },
+        'cancelled': { text: 'Annullato', icon: '❌', class: 'cancelled' }
+    };
+    return statusMap[status] || { text: status, icon: '❓', class: 'unknown' };
+}
+
+// Funzione helper per formattare l'ID dell'ordine
+function formatOrderId(id) {
+    if (!id) return 'N/A';
+    const idStr = id.toString();
+    return idStr.length > 12 ? idStr.substring(0, 8) + '...' + idStr.substring(idStr.length - 4) : idStr;
+}
+
+// Funzione helper per formattare la data
+function formatDate(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Adesso';
+    if (diffMins < 60) return `${diffMins} min fa`;
+    if (diffHours < 24) return `${diffHours} ore fa`;
+    if (diffDays < 7) return `${diffDays} giorni fa`;
+    
+    return date.toLocaleDateString('it-IT', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric' 
+    });
+}
+
+// Funzione legacy per compatibilità con altri casi
 function displayOrderResult(title, data) {
     const resultsContainer = document.getElementById('orders-results');
     

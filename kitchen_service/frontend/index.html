@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kitchen Service - Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>👨‍🍳 Kitchen Dashboard</h1>
+            <div class="kitchen-info">
+                <span class="kitchen-badge">Kitchen #1</span>
+                <span id="kitchen-status" class="status-indicator">●</span>
+            </div>
+        </header>
+
+        <nav class="main-nav">
+            <button class="nav-btn active" data-section="orders">Ordini</button>
+            <button class="nav-btn" data-section="menu">Menu</button>
+            <button class="nav-btn" data-section="status">Stato Cucina</button>
+        </nav>
+
+        <main>
+            <!-- Orders Section -->
+            <section id="orders-section" class="section active">
+                <div class="section-header">
+                    <h2>Ordini da Preparare</h2>
+                    <button id="refresh-orders-btn" class="btn btn-primary">
+                        <span style="margin-right: 8px;">🔄</span>
+                        Aggiorna
+                    </button>
+                </div>
+
+                <div id="orders-container" class="orders-container">
+                    <!-- Orders will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Menu Section -->
+            <section id="menu-section" class="section">
+                <div class="section-header">
+                    <h2>Gestione Menu</h2>
+                    <button id="add-dish-btn" class="btn btn-primary">
+                        <span style="margin-right: 8px;">➕</span>
+                        Aggiungi Piatto
+                    </button>
+                </div>
+
+                <div id="menu-grid" class="menu-grid">
+                    <!-- Menu items will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Status Section -->
+            <section id="status-section" class="section">
+                <div class="section-header">
+                    <h2>Stato Cucina</h2>
+                </div>
+
+                <div class="status-cards">
+                    <div class="status-card">
+                        <div class="status-card-header">
+                            <span class="card-icon">🏪</span>
+                            <h3>Disponibilità</h3>
+                        </div>
+                        <div id="operational-status" class="status-value">-</div>
+                        <button id="toggle-operational-btn" class="btn btn-secondary btn-full">
+                            Cambia Stato
+                        </button>
+                    </div>
+
+                    <div class="status-card">
+                        <div class="status-card-header">
+                            <span class="card-icon">📊</span>
+                            <h3>Carico Attuale</h3>
+                        </div>
+                        <div id="current-load" class="status-value">0</div>
+                        <div class="status-label">ordini in preparazione</div>
+                    </div>
+
+                    <div class="status-card">
+                        <div class="status-card-header">
+                            <span class="card-icon">📈</span>
+                            <h3>Capacità Massima</h3>
+                        </div>
+                        <div id="max-load" class="status-value">0</div>
+                        <div class="status-label">ordini totali</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Modal for adding new dish -->
+        <div id="dish-modal" class="modal">
+            <div class="modal-content modern-modal">
+                <div class="modal-header">
+                    <h2>
+                        <span class="modal-icon">🍽️</span>
+                        Aggiungi Piatto al Menu
+                    </h2>
+                    <span class="close">&times;</span>
+                </div>
+                
+                <form id="dish-form" class="modern-form">
+                    <div class="form-group">
+                        <label for="dish-name">
+                            <span class="label-icon">📝</span>
+                            Nome Piatto
+                        </label>
+                        <input type="text" id="dish-name" placeholder="Es: Spaghetti Carbonara" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dish-price">
+                            <span class="label-icon">💰</span>
+                            Prezzo
+                        </label>
+                        <div class="price-input-wrapper">
+                            <span class="currency-symbol">€</span>
+                            <input type="number" id="dish-price" placeholder="12.50" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="dish-quantity">
+                            <span class="label-icon">📦</span>
+                            Quantità Disponibile
+                        </label>
+                        <input type="number" id="dish-quantity" placeholder="10" min="0" required>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" onclick="hideDishModal()">Annulla</button>
+                        <button type="submit" class="btn btn-primary">
+                            <span style="margin-right: 8px;">✨</span>
+                            Aggiungi Piatto
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Notification area -->
+        <div id="notification" class="notification"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
