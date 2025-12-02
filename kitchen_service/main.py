@@ -35,8 +35,8 @@ async def lifespan(app: FastAPI):
 
     # --- 1. Creazione dei componenti base (Repository e Producer) ---
     app.state.kitchen_repo = KitchenAvailabilityRepository(kitchen_id=settings.KITCHEN_ID, host=settings.ETCD_HOST, port=settings.ETCD_PORT)
-    app.state.order_status_repo = OrderStatusRepository(host=settings.ETCD_HOST, port=settings.ETCD_PORT)
-    app.state.menu_repo = MenuRepository(redis_cluster_nodes=_cluster_nodes_from_settings())
+    app.state.order_status_repo = OrderStatusRepository(kitchen_id=settings.KITCHEN_ID, host=settings.ETCD_HOST, port=settings.ETCD_PORT)
+    app.state.menu_repo = MenuRepository(redis_cluster_nodes=_cluster_nodes_from_settings(), kitchen_id=str(settings.KITCHEN_ID))
     app.state.event_producer = EventProducer(bootstrap_servers=settings.KAFKA_BROKERS)
     
     # --- 2. Creazione dei Servizi (che dipendono dai componenti base) ---

@@ -6,21 +6,22 @@ from typing import Optional
 from model.order import Order # Assumendo che il tuo modello sia in model/order.py
 
 class OrderRepository:
-    def __init__(self, host: str = 'localhost', port: int = 2379):
+    def __init__(self, kitchen_id: uuid.UUID, host: str = 'localhost', port: int = 2379):
         """
         Inizializza il repository con una connessione a etcd.
         """
         try:
             self.etcd = etcd3.client(host=host, port=port)
             self.etcd.status()
-            print("✅ REPOSITORY: Connesso a etcd.")
+            self.kitchen_id = str(kitchen_id)
+            print(f"✅ REPOSITORY: Connesso a etcd per kitchen {self.kitchen_id}")
         except Exception as e:
             print(f"🔥 ERRORE CRITICO: Impossibile connettersi a etcd. Dettagli: {e}")
             raise
 
     def _get_key(self, order_id: uuid.UUID) -> str:
         """Helper per generare la chiave etcd per un ordine."""
-        return f"order/{str(order_id)}"
+        return f"{self.kitchen_id}/order/{str(order_id)}"
 
     def save(self, order: Order) -> None:
         """

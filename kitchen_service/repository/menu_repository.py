@@ -39,11 +39,12 @@ return new_quantity
 
 
 class MenuRepository:
-    def __init__(self, redis_cluster_nodes: List[ClusterNode]):
+    def __init__(self, redis_cluster_nodes: List[ClusterNode], kitchen_id: str):
         try:
             self.redis = RedisCluster(startup_nodes=redis_cluster_nodes, decode_responses=True, host_port_remap=True)
             self.redis.ping()
-            print("✅ REPOSITORY: Connesso a Redis Cluster.")
+            self.kitchen_id = kitchen_id
+            print(f"✅ REPOSITORY: Connesso a Redis Cluster per kitchen {kitchen_id}")
         except redis.exceptions.RedisClusterException as e:
             print(f"🔥 ERRORE CRITICO: Impossibile connettersi a Redis Cluster. Dettagli: {e}")
             raise
@@ -53,8 +54,8 @@ class MenuRepository:
         self.increment_script = self.redis.register_script(INCREMENT_QUANTITY_SCRIPT)
 
     def _menu_key(self) -> str:
-        """Restituisce la chiave Redis fissa per tutti i piatti."""
-        return "menu_global"
+        """Restituisce la chiave Redis isolata per questa cucina."""
+        return f"menu_{self.kitchen_id}"
 
     # --- Metodi Redis ---
 

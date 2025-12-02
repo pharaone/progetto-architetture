@@ -6,17 +6,18 @@ from typing import Optional
 from model.status import OrderStatus, StatusEnum
 
 class OrderStatusRepository:
-    def __init__(self, host: str = 'localhost', port: int = 2379):
+    def __init__(self, kitchen_id: uuid.UUID, host: str = 'localhost', port: int = 2379):
         try:
             self.etcd = etcd3.client(host=host, port=port)
             self.etcd.status()
-            print("✅ REPOSITORY: Connesso a etcd.")
+            self.kitchen_id = str(kitchen_id)
+            print(f"✅ REPOSITORY: Connesso a etcd per kitchen {self.kitchen_id}")
         except Exception as e:
             print(f"🔥 ERRORE CRITICO: Impossibile connettersi a etcd. Dettagli: {e}")
             raise
 
     def _get_key(self, order_id: uuid.UUID) -> str:
-        return f"order_status/{str(order_id)}"
+        return f"{self.kitchen_id}/order_status/{str(order_id)}"
 
     def save(self, order_status: OrderStatus) -> None:
         key = self._get_key(order_status.order_id)
@@ -73,26 +74,22 @@ class OrderStatusRepository:
         print(f"🔍 Cercando ordini per kitchen_id: {kitchen_id}")
         orders = []
         try:
-            # Usa il prefix per ottenere tutti gli order_status
-            prefix_results = list(self.etcd.get_prefix("order_status/"))
-            print(f"📊 Trovati {len(prefix_results)} ordini totali in etcd")
+            # Usa il prefix specifico per questa cucina
+            prefix = f"{str(kitchen_id)}/order_status/"
+            prefix_results = list(self.etcd.get_prefix(prefix))
+            print(f"📊 Trovati {len(prefix_results)} ordini per kitchen {kitchen_id}")
             
             for value, metadata in prefix_results:
                 if value:
                     try:
                         order_status = OrderStatus.model_validate_json(value)
-                        print(f"   - Ordine {order_status.order_id}: kitchen_id={order_status.kitchen_id}, status={order_status.status}")
+                        print(f"   - Ordine {order_status.order_id}: status={order_status.status}")
                         
-                        # Salta ordini senza kitchen_id (ordini vecchi o incompleti)
-                        if order_status.kitchen_id is None:
-                            print(f"   ⚠️ Ordine {order_status.order_id} non ha kitchen_id, ignorato")
-                            continue
-                        
-                        if str(order_status.kitchen_id) == str(kitchen_id):
-                            # Usa mode='json' per serializzare correttamente gli enum come stringhe
-                            order_dict = order_status.model_dump(mode='json')
-                            orders.append(order_dict)
-                            print(f"   ✅ Aggiunto ordine {order_status.order_id}")
+                        # Non serve più controllare kitchen_id perché il prefisso già filtra
+                        # Usa mode='json' per serializzare correttamente gli enum come stringhe
+                        order_dict = order_status.model_dump(mode='json')
+                        orders.append(order_dict)
+                        print(f"   ✅ Aggiunto ordine {order_status.order_id}")
                     except Exception as e:
                         print(f"   ❌ Errore parsing ordine: {e}")
                         continue

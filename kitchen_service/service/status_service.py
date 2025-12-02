@@ -62,6 +62,25 @@ class OrderStatusService:
             # L'aggiornamento è avvenuto con successo!
             print(f"SERVICE: Stato per l'ordine {order_id} aggiornato da '{current_status.status.value}' a '{new_status.value}'. Notifica in corso...")
             
+            # Gestione del carico della cucina: decrementa per stati finali
+            if new_status in [StatusEnum.READY_FOR_PICKUP, StatusEnum.COMPLETED, StatusEnum.CANCELLED]:
+                if current_status.kitchen_id:
+                    # Decrementa il carico solo se lo stato precedente NON era già uno stato finale
+                    old_is_final = current_status.status in [StatusEnum.READY_FOR_PICKUP, StatusEnum.COMPLETED, StatusEnum.CANCELLED]
+                    if not old_is_final:
+                        print(f"SERVICE: Decrementando carico per kitchen {current_status.kitchen_id} (stato: {current_status.status.value} → {new_status.value})")
+                        # Decrementa il carico atomicamente
+                        kitchen = await asyncio.to_thread(self._kitchen_repository.get_by_id)
+                        if kitchen and kitchen.current_load > 0:
+                            new_load = kitchen.current_load - 1
+                            new_operational = True if new_load < kitchen.max_load else kitchen.is_operational
+                            await asyncio.to_thread(
+                                self._kitchen_repository.update_fields,
+                                current_load=new_load,
+                                is_operational=new_operational
+                            )
+                            print(f"✅ SERVICE: Carico aggiornato: {kitchen.current_load} → {new_load}")
+            
             # Usa l'oggetto COMPLETO restituito dal repository
             await self._producer.publish_status_update(updated_status_obj)
             
