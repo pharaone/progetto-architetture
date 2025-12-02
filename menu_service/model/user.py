@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, UUID, String
+from sqlalchemy import Column, UUID, String, Boolean
 from sqlalchemy.orm import declarative_base
 
 from db.base import Base
@@ -13,3 +13,4 @@ class User(Base):
     email = Column(String(300), unique=True, nullable=False)
     password = Column(String, nullable=False)
     region = Column(String(300), nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)

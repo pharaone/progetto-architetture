@@ -41,7 +41,12 @@ return new_quantity
 class MenuRepository:
     def __init__(self, redis_cluster_nodes: List[ClusterNode], kitchen_id: str):
         try:
-            self.redis = RedisCluster(startup_nodes=redis_cluster_nodes, decode_responses=True, host_port_remap=True)
+            self.redis = RedisCluster(
+                startup_nodes=redis_cluster_nodes, 
+                decode_responses=True, 
+                skip_full_coverage_check=True,
+                reinitialize_steps=10
+            )
             self.redis.ping()
             self.kitchen_id = kitchen_id
             print(f"✅ REPOSITORY: Connesso a Redis Cluster per kitchen {kitchen_id}")

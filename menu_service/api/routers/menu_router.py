@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Form
 
 from config.dependecies_services import get_menu_service
 from service.menu_service import MenuService
+from api.auth import verify_admin
 
 router = APIRouter(prefix="/menu", tags=["menu"])
 
@@ -12,8 +13,13 @@ async def new_dish(
     name: str = Form(...),
     price: float = Form(...),
     description: str = Form(...),
-    menu_service: MenuService = Depends(get_menu_service)
+    menu_service: MenuService = Depends(get_menu_service),
+    admin_user_id: uuid.UUID = Depends(verify_admin)
 ):
+    """
+    Crea un nuovo piatto nel menu.
+    Richiede privilegi di amministratore.
+    """
     return menu_service.new_dish(name, price, description)
 
 @router.get("/get_dish")

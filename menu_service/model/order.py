@@ -15,8 +15,7 @@ class Order(Base):
     kitchen_id = Column(UUID(as_uuid=True))
     status = Column(String, default=OrderStatus.PENDING.value)
 
-    dish_id = Column(UUID(as_uuid=True), ForeignKey("dishes.id"), nullable=False)
-    dish = relationship("Dish", backref="orders")
+    dish_id = Column(UUID(as_uuid=True), nullable=False)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     user = relationship("User", backref="orders")

@@ -73,7 +73,23 @@ function showAuthenticatedUI() {
     document.getElementById('auth-section').classList.remove('active');
     mainNav.style.display = 'flex';
     userInfo.style.display = 'block';
-    userEmail.textContent = currentUser.email;
+    
+    // ✅ NUOVO: Mostra indicatore admin se applicabile
+    if (currentUser.is_admin) {
+        userEmail.textContent = `${currentUser.email} 👑 (Admin)`;
+    } else {
+        userEmail.textContent = currentUser.email;
+    }
+    
+    // ✅ NUOVO: Mostra/nascondi pulsante "Aggiungi Piatto" in base al ruolo
+    const addDishBtn = document.getElementById('add-dish-btn');
+    if (addDishBtn) {
+        if (currentUser.is_admin) {
+            addDishBtn.style.display = 'inline-block';
+        } else {
+            addDishBtn.style.display = 'none';
+        }
+    }
     
     // Mostra la sezione menu di default
     showSection('menu');
@@ -244,9 +260,27 @@ async function handleAddDish(event) {
     formData.append('price', document.getElementById('dish-price').value);
     formData.append('description', document.getElementById('dish-description').value);
     
+    // ✅ NUOVO: Verifica che l'utente sia loggato e admin
+    if (!currentUser || !currentUser.id) {
+        showNotification('Errore: Devi essere loggato come admin', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        return;
+    }
+    
+    if (!currentUser.is_admin) {
+        showNotification('Errore: Solo gli admin possono aggiungere piatti', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        return;
+    }
+    
     try {
         const response = await fetch(`${API_BASE_URL}/menu/new_dish`, {
             method: 'POST',
+            headers: {
+                'X-User-Id': currentUser.id  // ✅ NUOVO: Header per autenticazione admin
+            },
             body: formData
         });
         
@@ -292,7 +326,8 @@ async function handleRegister(event) {
             // Auto-login after registration
             currentUser = {
                 id: userData.user_id, // Use the real UUID from the API
-                email: email
+                email: email,
+                is_admin: userData.is_admin || false // ✅ NUOVO: Salva ruolo admin (default false per registrazione normale)
             };
             console.log('Current user:', currentUser); // Debug log
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -330,11 +365,19 @@ async function handleLogin(event) {
             console.log('Login response:', userData); // Debug log
             currentUser = {
                 id: userData.user_id, // Use the real UUID from the API
-                email: email
+                email: email,
+                is_admin: userData.is_admin || false // ✅ NUOVO: Salva ruolo admin
             };
             console.log('Current user:', currentUser); // Debug log
             localStorage.setItem('currentUser', JSON.stringify(currentUser));
-            showNotification('Login effettuato con successo!', 'success');
+            
+            // Mostra messaggio specifico per admin
+            if (currentUser.is_admin) {
+                showNotification('Login effettuato come ADMIN!', 'success');
+            } else {
+                showNotification('Login effettuato con successo!', 'success');
+            }
+            
             document.getElementById('login-form').reset();
             showAuthenticatedUI();
         } else {

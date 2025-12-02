@@ -116,9 +116,9 @@ Aggiungi un nuovo piatto al menu
 
 ## 🎯 Auto-Refresh
 
-Gli ordini si aggiornano automaticamente ogni 10 secondi:
+Gli ordini si aggiornano automaticamente ogni 30 secondi:
 ```javascript
-setInterval(loadOrders, 10000);
+setInterval(loadOrders, 30000);
 ```
 
 Puoi modificare l'intervallo o disabilitarlo commentando questa riga.
@@ -188,4 +188,6 @@ frontend/
 - ✅ Dashboard stato cucina
 
 Buon lavoro in cucina! 👨‍🍳✨
+
+
 
