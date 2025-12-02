@@ -152,3 +152,5 @@ def test_get_graph_snapshot(kitchen_service):
     assert "archi" in result["graph"]
     assert len(result["kitchens"]) == 1
 
+
+

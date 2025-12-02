@@ -82,8 +82,10 @@ class OrderOrchestrationService:
         if not status_updated:
             return False
 
-        # Logica di business
+        # Logica di business: decrementa il carico per ordini che non sono più in lavorazione
         if new_status == StatusEnum.READY_FOR_PICKUP:
+            await self._kitchen_service.decrement_load(kitchen_id)
+        elif new_status == StatusEnum.COMPLETED:
             await self._kitchen_service.decrement_load(kitchen_id)
         elif new_status == StatusEnum.CANCELLED:
             await self._kitchen_service.decrement_load(kitchen_id)

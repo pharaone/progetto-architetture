@@ -71,6 +71,19 @@ class MenuRepository:
             return None
         return MenuItem.parse_raw(item_json)
 
+    def get_all_menu_items(self) -> List[MenuItem]:
+        """Recupera tutti i piatti del menu usando HGETALL."""
+        key = self._menu_key()
+        all_items = self.redis.hgetall(key)
+        menu_items = []
+        for dish_id, item_json in all_items.items():
+            try:
+                menu_items.append(MenuItem.parse_raw(item_json))
+            except Exception as e:
+                print(f"⚠️ Errore parsing piatto {dish_id}: {e}")
+                continue
+        return menu_items
+
     def delete_menu_item(self, dish_id: UUID) -> bool:
         """Elimina un piatto usando HDEL."""
         key = self._menu_key()

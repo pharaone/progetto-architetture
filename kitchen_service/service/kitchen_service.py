@@ -91,7 +91,7 @@ class KitchenService:
 
         # Controlla la disponibilità del piatto richiesto
         dish_available = await self._menu_service.is_dish_available(request.dish_id)
-        if dish_available <= 0:
+        if not dish_available:
             print(f"⚠️ Piatto {request.dish_id} non disponibile per ordine {request.order_id}")
             await self._producers.publish_acceptance_response(
                 kitchen_id=self._kitchen_repo.kitchen_id,

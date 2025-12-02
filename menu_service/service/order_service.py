@@ -4,7 +4,6 @@ import logging
 from consumers.message.order_status_message import OrderStatusMessage
 from model.enum.order_status import OrderStatus
 from model.order import Order
-from producers.kafka_producer import EventProducer
 from repository.order_repository import OrderRepository
 
 from api.clients.routing_service_client import start_order
@@ -24,7 +23,7 @@ class OrderService:
         order = Order(dish_id=dish_id, user_id=user_id, status=OrderStatus.PENDING.value)
         order = self.order_repo.add(order)
         user = self.user_repo.get_by_id(user_id)
-        start_order(user.region,order.id, user_id)
+        start_order(user.region, order.id, dish_id)  # ✅ Corretto: passa dish_id invece di user_id
         return order
 
     def get_order_status(self, order_id: uuid.UUID, user_id: uuid.UUID) -> Order | None:

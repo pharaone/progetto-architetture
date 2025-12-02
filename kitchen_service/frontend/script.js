@@ -12,6 +12,12 @@ function generateUUID() {
     });
 }
 
+// Helper function to validate UUID format
+function isValidUUID(uuid) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(uuid);
+}
+
 // DOM elements
 const sections = document.querySelectorAll('.section');
 const navButtons = document.querySelectorAll('.nav-btn');
@@ -27,8 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadKitchenStatus();
     loadOrders();
     
-    // Auto-refresh orders every 10 seconds
-    setInterval(loadOrders, 10000);
+    // Auto-refresh orders every 30 seconds
+    setInterval(loadOrders, 30000);
 });
 
 // Navigation
@@ -125,16 +131,21 @@ function displayOrders(orders) {
                 </div>
                 
                 <div class="order-body">
-                    <div class="dish-name-order">${order.dish_id || 'Dettagli non disponibili'}</div>
-                    
                     <div class="order-detail-item">
                         <span class="detail-label">ID Ordine:</span>
                         <span class="detail-value">${formatOrderId(order.order_id)}</span>
                     </div>
+                    ${order.dish_id ? `
                     <div class="order-detail-item">
                         <span class="detail-label">Piatto ID:</span>
                         <span class="detail-value">${formatOrderId(order.dish_id)}</span>
                     </div>
+                    ` : `
+                    <div class="order-detail-item">
+                        <span class="detail-label">Piatto:</span>
+                        <span class="detail-value" style="color: #9ca3af; font-style: italic;">Informazioni non disponibili</span>
+                    </div>
+                    `}
                 </div>
                 
                 <div class="order-actions">
@@ -210,10 +221,126 @@ async function updateOrderStatus(orderId, newStatus) {
 async function loadMenu() {
     try {
         showLoading(menuGrid);
-        // Per ora mostriamo un messaggio, poi possiamo implementare il caricamento del menu da Redis
-        menuGrid.innerHTML = '<p style="text-align: center; color: #6b7280; grid-column: 1/-1; padding: 40px;">Gestione menu disponibile tramite piatti aggiunti 🍽️</p>';
+        console.log('Loading menu from:', `${API_BASE_URL}/menu/dishes`);
+        const response = await fetch(`${API_BASE_URL}/menu/dishes`);
+        
+        if (response.ok) {
+            const dishes = await response.json();
+            console.log('Dishes received:', dishes);
+            displayMenu(dishes);
+        } else {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            showNotification(`Errore nel caricamento del menu: ${response.status}`, 'error');
+            menuGrid.innerHTML = `<p style="text-align: center; color: #6b7280; grid-column: 1/-1; padding: 40px;">Errore nel caricamento del menu</p>`;
+        }
     } catch (error) {
         console.error('Error loading menu:', error);
+        showNotification('Errore di connessione: ' + error.message, 'error');
+        menuGrid.innerHTML = `<p style="text-align: center; color: #6b7280; grid-column: 1/-1; padding: 40px;">Errore di connessione</p>`;
+    }
+}
+
+function displayMenu(dishes) {
+    if (!dishes || dishes.length === 0) {
+        menuGrid.innerHTML = '<p style="text-align: center; color: #6b7280; grid-column: 1/-1; padding: 40px;">Nessun piatto nel menu 🍽️<br><small>Clicca su "Aggiungi Piatto" per iniziare</small></p>';
+        return;
+    }
+    
+    let menuHtml = '';
+    
+    dishes.forEach((dish) => {
+        const isAvailable = dish.available_quantity > 0;
+        const availabilityClass = isAvailable ? 'available' : 'unavailable';
+        
+        menuHtml += `
+            <div class="menu-card ${availabilityClass}">
+                <div class="menu-card-header">
+                    <h3 class="dish-name">${dish.name}</h3>
+                    <span class="dish-price">€${dish.price.toFixed(2)}</span>
+                </div>
+                
+                <div class="menu-card-body">
+                    <div class="quantity-info">
+                        <span class="quantity-label">Disponibilità:</span>
+                        <span class="quantity-value ${isAvailable ? 'in-stock' : 'out-of-stock'}">
+                            ${dish.available_quantity} ${dish.available_quantity === 1 ? 'porzione' : 'porzioni'}
+                        </span>
+                    </div>
+                    
+                    <div class="dish-id-info">
+                        <span style="font-size: 0.75rem; color: #9ca3af;">ID: ${formatOrderId(dish.dish_id)}</span>
+                    </div>
+                </div>
+                
+                <div class="menu-card-actions">
+                    <button class="btn btn-secondary btn-small" onclick="restockDish('${dish.dish_id}', '${dish.name}')">
+                        <span style="margin-right: 4px;">📦</span>
+                        Ricarica
+                    </button>
+                    <button class="btn btn-danger btn-small" onclick="deleteDish('${dish.dish_id}', '${dish.name}')">
+                        <span style="margin-right: 4px;">🗑️</span>
+                        Elimina
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    menuGrid.innerHTML = menuHtml;
+}
+
+async function restockDish(dishId, dishName) {
+    const amount = prompt(`Quante porzioni vuoi aggiungere a "${dishName}"?`, '5');
+    
+    if (!amount || isNaN(amount) || parseInt(amount) <= 0) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/menu/dishes/${dishId}/restock?amount=${amount}`, {
+            method: 'PATCH',
+            headers: {
+                'X-API-Key': API_KEY
+            }
+        });
+        
+        if (response.ok) {
+            const updatedDish = await response.json();
+            showNotification(`✅ Scorta di "${dishName}" aggiornata! Nuova quantità: ${updatedDish.available_quantity}`, 'success');
+            await loadMenu();
+        } else {
+            const error = await response.json();
+            showNotification(`Errore: ${error.detail || 'Impossibile aggiornare la scorta'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error restocking dish:', error);
+        showNotification('Errore di connessione', 'error');
+    }
+}
+
+async function deleteDish(dishId, dishName) {
+    if (!confirm(`Sei sicuro di voler eliminare "${dishName}" dal menu?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/menu/dishes/${dishId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-API-Key': API_KEY
+            }
+        });
+        
+        if (response.ok) {
+            showNotification(`✅ Piatto "${dishName}" eliminato dal menu`, 'success');
+            await loadMenu();
+        } else {
+            const error = await response.json();
+            showNotification(`Errore: ${error.detail || 'Impossibile eliminare il piatto'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting dish:', error);
         showNotification('Errore di connessione', 'error');
     }
 }
@@ -227,6 +354,17 @@ function hideDishModal() {
     document.getElementById('dish-form').reset();
 }
 
+function generateAndFillDishId() {
+    const dishIdInput = document.getElementById('dish-id');
+    dishIdInput.value = generateUUID();
+    dishIdInput.focus();
+    // Feedback visivo
+    dishIdInput.style.backgroundColor = '#d1fae5';
+    setTimeout(() => {
+        dishIdInput.style.backgroundColor = '';
+    }, 500);
+}
+
 async function handleAddDish(event) {
     event.preventDefault();
     
@@ -235,7 +373,25 @@ async function handleAddDish(event) {
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span style="margin-right: 8px;">⏳</span>Aggiunta in corso...';
     
-    const dishId = generateUUID();
+    // Leggi l'ID dal campo o genera uno nuovo
+    let dishId = document.getElementById('dish-id').value.trim();
+    
+    // Se l'utente ha inserito un ID, validalo
+    if (dishId && !isValidUUID(dishId)) {
+        showNotification('❌ ID piatto non valido. Inserisci un UUID valido o lascia vuoto per generarne uno automatico.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        return;
+    }
+    
+    // Se vuoto, genera un UUID automatico
+    if (!dishId) {
+        dishId = generateUUID();
+        console.log(`Generated automatic dish ID: ${dishId}`);
+    } else {
+        console.log(`Using user-provided dish ID: ${dishId}`);
+    }
+    
     const dishData = {
         dish_id: dishId,
         name: document.getElementById('dish-name').value,
@@ -255,7 +411,8 @@ async function handleAddDish(event) {
         
         if (response.ok) {
             const dish = await response.json();
-            showNotification(`✨ ${dish.name} aggiunto con successo!`, 'success');
+            const idInfo = document.getElementById('dish-id').value.trim() ? '' : ` (ID: ${formatOrderId(dish.dish_id)})`;
+            showNotification(`✨ ${dish.name} aggiunto con successo!${idInfo}`, 'success');
             hideDishModal();
             loadMenu();
         } else {

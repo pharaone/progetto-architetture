@@ -82,6 +82,12 @@ class OrderStatusRepository:
                     try:
                         order_status = OrderStatus.model_validate_json(value)
                         print(f"   - Ordine {order_status.order_id}: kitchen_id={order_status.kitchen_id}, status={order_status.status}")
+                        
+                        # Salta ordini senza kitchen_id (ordini vecchi o incompleti)
+                        if order_status.kitchen_id is None:
+                            print(f"   ⚠️ Ordine {order_status.order_id} non ha kitchen_id, ignorato")
+                            continue
+                        
                         if str(order_status.kitchen_id) == str(kitchen_id):
                             # Usa mode='json' per serializzare correttamente gli enum come stringhe
                             order_dict = order_status.model_dump(mode='json')
@@ -92,6 +98,10 @@ class OrderStatusRepository:
                         continue
             
             print(f"✅ Totale ordini per kitchen {kitchen_id}: {len(orders)}")
+            
+            # Ordina gli ordini per created_at (dal più vecchio al più recente)
+            orders.sort(key=lambda x: x.get('created_at', ''))
+            print(f"📅 Ordini ordinati per tempo di arrivo")
         except Exception as e:
             print(f"❌ Errore get_all_by_kitchen: {e}")
             # Ritorna lista vuota invece di crashare

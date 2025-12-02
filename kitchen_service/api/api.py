@@ -91,6 +91,14 @@ async def update_kitchen_status(
     return {"message": "Stato cucina aggiornato con successo."}
 
 # --- Menu Endpoints ---
+@router.get("/menu/dishes")
+async def get_all_dishes(
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    """Restituisce tutti i piatti disponibili nel menu."""
+    items = await menu_service.get_all_menu_items()
+    return items
+
 @router.get("/menu/dishes/{dish_id}", response_model=MenuItem)
 async def get_dish_detail(
     dish_id: uuid.UUID,
@@ -149,6 +157,23 @@ async def update_dish_quantity(
     item.available_quantity = request.available_quantity
     await menu_service.update_menu_item(item)
     return item
+
+@router.patch("/menu/dishes/{dish_id}/restock", response_model=MenuItem, dependencies=[Depends(verify_api_key)])
+async def restock_dish(
+    dish_id: uuid.UUID,
+    amount: int,
+    menu_service: MenuService = Depends(get_menu_service)
+):
+    """Incrementa la quantità disponibile di un piatto."""
+    success = await menu_service.restock_item(dish_id, amount)
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato o impossibile aggiornare.")
+    
+    # Restituisci il piatto aggiornato
+    updated_item = await menu_service.get_menu_item(dish_id)
+    if not updated_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Piatto non trovato.")
+    return updated_item
 
 @router.patch("/menu/dishes/{dish_id}", response_model=MenuItem, dependencies=[Depends(verify_api_key)])
 async def update_menu_item_details(

@@ -41,6 +41,11 @@ class MenuService:
         item = await asyncio.to_thread(self._menu_repo.get_menu_item, dish_id)
         return item
 
+    async def get_all_menu_items(self) -> List[MenuItem]:
+        """Recupera tutti i piatti del menu in modo non bloccante."""
+        items = await asyncio.to_thread(self._menu_repo.get_all_menu_items)
+        return items
+
     async def is_dish_available(self, dish_id: uuid.UUID) -> bool:
         """
         Controlla se un piatto ha una quantità disponibile > 0 in modo non bloccante.

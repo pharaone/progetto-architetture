@@ -91,6 +91,7 @@ class EventConsumer:
                             print(f"🔧 Creazione dello stato iniziale 'pending' per l'ordine {order_assignment.order_id}...")
                             initial_status = OrderStatus(
                                 order_id=order_assignment.order_id,
+                                dish_id=order_assignment.dish_id,
                                 status=StatusEnum.PENDING,
                                 kitchen_id=order_assignment.kitchen_id
                             )

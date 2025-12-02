@@ -327,6 +327,104 @@ header h1 {
     gap: 20px;
 }
 
+.menu-card {
+    background: white;
+    border-radius: 16px;
+    padding: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    border: 2px solid transparent;
+}
+
+.menu-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(16, 185, 129, 0.15);
+    border-color: #10b981;
+}
+
+.menu-card.unavailable {
+    opacity: 0.6;
+}
+
+.menu-card-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.menu-card-header .dish-name {
+    color: white;
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.menu-card-header .dish-price {
+    color: white;
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.menu-card-body {
+    padding: 20px;
+}
+
+.quantity-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 10px;
+}
+
+.quantity-label {
+    color: #6b7280;
+    font-weight: 500;
+    font-size: 0.95rem;
+}
+
+.quantity-value {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.quantity-value.in-stock {
+    color: #10b981;
+}
+
+.quantity-value.out-of-stock {
+    color: #ef4444;
+}
+
+.dish-id-info {
+    padding: 8px 0;
+}
+
+.menu-card-actions {
+    padding: 15px 20px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 10px;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+/* Old dish card styles (kept for compatibility) */
 .dish-card {
     background: white;
     border-radius: 12px;

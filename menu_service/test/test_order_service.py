@@ -1,8 +1,13 @@
 import uuid
 import pytest
 from unittest.mock import MagicMock, patch
+import sys
+
+# Mock the routing_service_client module before importing OrderService
+sys.modules['api.clients.routing_service_client'] = MagicMock()
 
 from service.order_service import OrderService
+from model.dish import Dish  # Import Dish for SQLAlchemy relationship
 from model.order import Order
 from model.enum.order_status import OrderStatus
 from repository.order_repository import OrderRepository

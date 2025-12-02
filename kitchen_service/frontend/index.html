@@ -105,6 +105,23 @@
                 
                 <form id="dish-form" class="modern-form">
                     <div class="form-group">
+                        <label for="dish-id">
+                            <span class="label-icon">🔖</span>
+                            ID Piatto
+                            <span style="font-size: 0.85rem; color: #6b7280; font-weight: 400; margin-left: 8px;">(opzionale, verrà generato automaticamente se vuoto)</span>
+                        </label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="dish-id" placeholder="Es: 12345678-1234-1234-1234-123456789abc" style="flex: 1;">
+                            <button type="button" class="btn btn-secondary btn-small" onclick="generateAndFillDishId()" style="white-space: nowrap;">
+                                🎲 Genera
+                            </button>
+                        </div>
+                        <small style="color: #6b7280; font-size: 0.8rem; margin-top: 4px; display: block;">
+                            Inserisci un UUID valido o lascia vuoto per generarne uno automatico
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
                         <label for="dish-name">
                             <span class="label-icon">📝</span>
                             Nome Piatto
@@ -149,4 +166,6 @@
     <script src="script.js"></script>
 </body>
 </html>
+
+
 
