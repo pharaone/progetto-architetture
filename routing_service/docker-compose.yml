@@ -1,9 +1,9 @@
 services:
-  routing-service:
+  routing-service-1:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: routing-service
+    container_name: routing-service-1
     environment:
       - PORT=8080
       - KAFKA_BOOTSTRAP=kafka:29092
@@ -13,11 +13,39 @@ services:
       - TOPIC_CONFERMA=conferma_ordine
       - TOPIC_STATUS=status
       - TOPIC_ORDERSTATUS=orderstatus
-    ports:
-      - "7777:7777"
+    # NESSUNA porta pubblicata, resta solo nella rete interna
     networks:
       - app-network
 
+  routing-service-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: routing-service-2
+    environment:
+      - PORT=8080
+      - KAFKA_BOOTSTRAP=kafka:29092
+      - MENU_SERVICE_URL=http://menu-service:8081
+      - WINDOW_MS=15000
+      - TOPIC_DISPONIBILITA=disponibilita
+      - TOPIC_CONFERMA=conferma_ordine
+      - TOPIC_STATUS=status
+      - TOPIC_ORDERSTATUS=orderstatus
+    networks:
+      - app-network
+
+  routing-lb:
+    image: nginx:alpine
+    container_name: routing-lb
+    depends_on:
+      - routing-service-1
+      - routing-service-2
+    ports:
+      - "7777:7777"   # espone il LB verso l'esterno
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - app-network
 
 networks:
   app-network:
